@@ -10,30 +10,23 @@ export interface Player {
   isInactive?: boolean
 }
 
-export interface PlayerHand {
-  id: string
-  round_id: string
-  player_id: string
-  lyric_card_text: string
-  template?: string | null
-  blank_count: number
-  position: number
-  is_played: boolean
-}
-
 export interface SongSubmission {
-  id?: string
   playerId: string
   playerName: string
   lyric: string
-  handCardId?: string | null
   songUrl?: string | null
-  songStatus?: 'pending' | 'generating' | 'completed' | 'failed'
-  producerRating?: number | null
+  audioUrl?: string | null
+  streamAudioUrl?: string | null
+  imageUrl?: string | null
+  taskId?: string | null
+  duration?: number | null
+  title?: string | null
+  id?: string
+  songStatus?: string
   isWinner?: boolean
 }
 
-export type GamePhase = 'loading' | 'selecting' | 'generating' | 'listening' | 'results'
+export type GamePhase = 'waiting' | 'selecting' | 'generating' | 'listening' | 'results' | 'error'
 
 export interface GameState {
   gamePhase: GamePhase
@@ -56,6 +49,13 @@ export interface GameState {
   winner: string | null
   loading: boolean
   error?: string
+}
+
+export interface PlayerHand {
+  id: string
+  lyric_card_text: string
+  blank_count?: number
+  template?: string
 }
 
 export interface GameConfig {

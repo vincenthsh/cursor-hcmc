@@ -11,6 +11,7 @@ import {
   MonitorSmartphone,
 } from 'lucide-react'
 import { useGameState } from '@/hooks'
+import { AudioPlayer } from '@/components/AudioPlayer'
 
 interface CacophonyGameProps {
   roomCode?: string
@@ -46,7 +47,7 @@ const CacophonyGame = ({ roomCode, playerId }: CacophonyGameProps) => {
 
   useEffect(() => {
     const audio = audioRef.current
-    if (!audio || !currentSong?.songUrl) return
+    if (!audio || !currentSong?.audioUrl) return
 
     if (gameState.isPlaying) {
       if (gameState.listeningCueAt) {
@@ -61,7 +62,7 @@ const CacophonyGame = ({ roomCode, playerId }: CacophonyGameProps) => {
     } else {
       audio.pause()
     }
-  }, [currentSong?.songUrl, gameState.isPlaying, gameState.listeningCueAt])
+  }, [currentSong?.audioUrl, gameState.isPlaying, gameState.listeningCueAt])
 
   const blanksFilled =
     (gameState.selectedCard?.blank_count || 0) === 0 ||
@@ -144,17 +145,17 @@ const CacophonyGame = ({ roomCode, playerId }: CacophonyGameProps) => {
               >
                 <div className="text-sm text-gray-400 mb-2">Lyric Card #{idx + 1}</div>
                 <div className="font-semibold">{card.lyric_card_text}</div>
-                {card.blank_count > 0 && (
-                  <div className="text-xs text-gray-400 mt-2">{card.blank_count} blanks</div>
+                {(card.blank_count || 0) > 0 && (
+                  <div className="text-xs text-gray-400 mt-2">{card.blank_count || 0} blanks</div>
                 )}
               </button>
             ))}
           </div>
-          {gameState.selectedCard && gameState.selectedCard.blank_count > 0 && (
+          {gameState.selectedCard && (gameState.selectedCard.blank_count || 0) > 0 && (
             <div className="mb-4 bg-gray-800 rounded-xl p-4">
               <h4 className="font-semibold mb-2">Fill in the blanks</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {Array.from({ length: gameState.selectedCard.blank_count }).map((_, idx) => (
+                {Array.from({ length: gameState.selectedCard.blank_count || 0 }).map((_, idx) => (
                   <input
                     key={idx}
                     className="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:border-cyan-400"
@@ -279,9 +280,19 @@ const CacophonyGame = ({ roomCode, playerId }: CacophonyGameProps) => {
             )}
           </div>
 
-          {currentSong?.songUrl && (
+          {currentSong?.audioUrl && (
             <div className="mt-6">
-              <audio ref={audioRef} className="w-full" controls src={currentSong.songUrl} />
+              <AudioPlayer
+                audioUrl={currentSong.audioUrl}
+                isPlaying={gameState.isPlaying}
+                onPlayStateChange={() => {
+                  if (isHost) {
+                    togglePlaySong()
+                  }
+                }}
+                showControls={false}
+              />
+              <audio ref={audioRef} className="hidden" src={currentSong.audioUrl} />
             </div>
           )}
 
@@ -501,7 +512,7 @@ const CacophonyGame = ({ roomCode, playerId }: CacophonyGameProps) => {
 
       {/* Main Game Area */}
       <div className={`${containerWidth} mx-auto`}>
-        {(gameState.gamePhase === 'loading' || gameState.loading) && renderLoading()}
+        {(gameState.gamePhase === 'waiting' || gameState.loading) && renderLoading()}
         {gameState.gamePhase === 'selecting' && renderSelecting()}
         {gameState.gamePhase === 'generating' && renderGenerating()}
         {gameState.gamePhase === 'listening' && renderListening()}
