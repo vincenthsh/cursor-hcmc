@@ -2,8 +2,6 @@
 
 export interface SunoGenerateRequest {
   prompt: string
-  style: string
-  title: string
   customMode: boolean
   instrumental: boolean
   model: 'V3_5' | 'V4' | 'V4_5' | 'V4_5PLUS' | 'V5'

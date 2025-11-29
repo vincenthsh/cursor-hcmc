@@ -247,8 +247,6 @@ class SunoApiService {
 
       const taskId = await this.generateMusic({
         prompt,
-        style,
-        title: `${vibeCard} - Player ${playerId}`,
         customMode: true,
         instrumental,
         model,

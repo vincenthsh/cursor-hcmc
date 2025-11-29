@@ -290,8 +290,6 @@ export const useGameState = (
 
         const taskId = await sunoApiService.generateMusic({
           prompt: `Create a ${vibeWithLyric.toLowerCase()} ${productionNotes}`,
-          style: gameState.vibeCard,
-          title: `${gameState.vibeCard} - Player`,
           customMode: true,
           instrumental: false,
           model: 'V4_5',
