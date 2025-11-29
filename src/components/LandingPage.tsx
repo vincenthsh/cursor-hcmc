@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Music, Users, Loader, Trash2 } from 'lucide-react'
+import { Music, Users, Loader, Trash2, HelpCircle } from 'lucide-react'
 import { createRoom, createPlayer, getRoomByCode, getAvailableRooms, GameRoomRow, deleteRoom } from '@/utils/api'
 import { saveSession } from '@/utils/session'
 import { formatRoomCodeInput, isRoomCodeComplete } from '@/utils/roomCode'
+import InstructionsModal from '@/components/InstructionsModal'
 
 type Tab = 'create' | 'join' | 'browse'
 
@@ -20,6 +21,7 @@ export default function LandingPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [roomToDelete, setRoomToDelete] = useState<(GameRoomRow & { playerCount: number }) | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [showInstructions, setShowInstructions] = useState(false)
 
   const handleHostGame = async () => {
     setError(undefined)
@@ -173,7 +175,15 @@ export default function LandingPage() {
             <Music className="w-12 h-12 text-purple-400" />
             <h1 className="text-5xl font-bold gradient-text">Cacophony</h1>
           </div>
-          <p className="text-gray-400 text-lg">Create hilarious AI-generated songs with your friends</p>
+          <p className="text-gray-400 text-lg mb-4">Create hilarious AI-generated songs with your friends</p>
+          <button
+            type="button"
+            onClick={() => setShowInstructions(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg transition-colors"
+          >
+            <HelpCircle className="w-5 h-5 text-purple-400" />
+            <span className="text-gray-300">How to Play</span>
+          </button>
         </div>
 
         {/* Tabs */}
@@ -377,6 +387,9 @@ export default function LandingPage() {
             <p className="text-red-300 text-center">{error}</p>
           </div>
         )}
+
+        {/* Instructions Modal */}
+        <InstructionsModal isOpen={showInstructions} onClose={() => setShowInstructions(false)} />
       </div>
     </div>
   )
