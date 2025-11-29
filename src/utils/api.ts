@@ -523,3 +523,16 @@ export const startGame = async (roomId: string): Promise<GameRoundRow> => {
   log('startGame', { roomId, playerCount: players.length })
   return round
 }
+
+export const deleteRoom = async (roomId: string): Promise<void> => {
+  // Deleting the game room will cascade and delete:
+  // - All players in the room
+  // - All game rounds
+  // - All player hands
+  // - All submissions
+  // This is handled by the database ON DELETE CASCADE constraints
+  const { error } = await supabase.from('game_rooms').delete().eq('id', roomId)
+
+  if (error) throw getError('Failed to delete room', error)
+  log('deleteRoom', { roomId })
+}
