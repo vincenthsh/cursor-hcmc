@@ -54,11 +54,16 @@ const INACTIVITY_THRESHOLD_MS = 3 * 60 * 1000
 const POLL_INTERVAL_ACTIVE = 2500
 const POLL_INTERVAL_PAUSED = 5000
 
-export const useGameState = () => {
+export const useGameState = (
+  roomCode?: string,
+  playerId?: string
+) => {
   const [gameState, setGameState] = useState<GameState>(initialState)
 
-  const roomCode = import.meta.env.VITE_ROOM_CODE || 'AB1234'
-  const currentPlayerId = import.meta.env.VITE_PLAYER_ID || ''
+  // Use provided params, fall back to env vars for backwards compatibility in dev
+  const effectiveRoomCode = roomCode || import.meta.env.VITE_ROOM_CODE || 'AB1234'
+  const effectivePlayerId = playerId || import.meta.env.VITE_PLAYER_ID || ''
+  const currentPlayerId = effectivePlayerId
 
   const mapSubmissions = useCallback((rows: (Awaited<ReturnType<typeof getSubmissionsForRound>>)) =>
     rows.map<SongSubmission>((row) => ({
@@ -113,7 +118,7 @@ export const useGameState = () => {
   const loadRoundState = useCallback(async (options?: { silent?: boolean }) => {
     setGameState((prev) => ({ ...prev, loading: options?.silent ? prev.loading : true, error: undefined }))
     try {
-      const room = await getRoomByCode(roomCode)
+      const room = await getRoomByCode(effectiveRoomCode)
       const players = await getPlayersForRoom(room.id)
       let round = await getLatestRound(room.id)
 
@@ -166,7 +171,7 @@ export const useGameState = () => {
         error: err instanceof Error ? err.message : 'Failed to load game',
       }))
     }
-  }, [currentPlayerId, derivePhase, mapPlayers, mapSubmissions, roomCode])
+  }, [currentPlayerId, derivePhase, mapPlayers, mapSubmissions, effectiveRoomCode])
 
   useEffect(() => {
     loadRoundState()
@@ -345,7 +350,7 @@ export const useGameState = () => {
   const nextRound = useCallback(async () => {
     if (gameState.isPaused) return
     try {
-      const room = await getRoomByCode(roomCode)
+      const room = await getRoomByCode(effectiveRoomCode)
       const players = await getPlayersForRoom(room.id)
       const nextRoundNumber = (gameState.currentRound || 0) + 1
       const producer = deriveProducerForRound(players, nextRoundNumber)
@@ -368,7 +373,7 @@ export const useGameState = () => {
         error: err instanceof Error ? err.message : 'Failed to start next round',
       }))
     }
-  }, [currentPlayerId, gameState.currentRound, gameState.isPaused, loadRoundState, roomCode])
+  }, [currentPlayerId, gameState.currentRound, gameState.isPaused, loadRoundState, effectiveRoomCode])
 
   useEffect(() => {
     if (gameState.isPaused) return undefined

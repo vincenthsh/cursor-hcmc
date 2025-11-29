@@ -356,3 +356,146 @@ export const computeFilledLyric = (submission: SubmissionRow): string => {
 export const pickRandomVibeCard = (): string => {
   return VIBE_CARDS[Math.floor(Math.random() * VIBE_CARDS.length)]
 }
+
+// Lobby & Session Management
+
+export const generateRoomCode = (): string => {
+  const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  return Array.from({ length: 6 }, () =>
+    ALPHABET[Math.floor(Math.random() * ALPHABET.length)]
+  ).join('')
+}
+
+export const createRoom = async (targetRounds: number = 3): Promise<GameRoomRow> => {
+  const maxAttempts = 10
+  let attempts = 0
+
+  while (attempts < maxAttempts) {
+    const roomCode = generateRoomCode()
+
+    const { data: existing } = await supabase
+      .from('game_rooms')
+      .select('id')
+      .eq('room_code', roomCode)
+      .maybeSingle()
+
+    if (!existing) {
+      const { data, error } = await supabase
+        .from('game_rooms')
+        .insert({
+          room_code: roomCode,
+          status: 'waiting',
+          current_round: 0,
+          target_rounds: targetRounds,
+          is_paused: false,
+          paused_at: null,
+        })
+        .select('*')
+        .single()
+
+      if (error || !data) throw getError('Failed to create room', error)
+      log('createRoom', { roomCode, id: data.id })
+      return data as GameRoomRow
+    }
+
+    attempts++
+  }
+
+  throw new Error('Failed to generate unique room code after 10 attempts')
+}
+
+export const updateRoomStatus = async (
+  roomId: string,
+  status: 'waiting' | 'in_progress' | 'completed'
+): Promise<void> => {
+  const { error } = await supabase
+    .from('game_rooms')
+    .update({ status })
+    .eq('id', roomId)
+
+  if (error) throw getError('Failed to update room status', error)
+  log('updateRoomStatus', { roomId, status })
+}
+
+export const createPlayer = async (
+  gameRoomId: string,
+  username?: string
+): Promise<PlayerRow> => {
+  const roomCode = (await supabase.from('game_rooms').select('room_code').eq('id', gameRoomId).single()).data
+    ?.room_code
+  if (!roomCode) throw new Error('Invalid room ID')
+
+  const room = await getRoomByCode(roomCode)
+
+  if (room.status !== 'waiting') {
+    throw new Error('Game has already started')
+  }
+
+  const players = await getPlayersForRoom(gameRoomId)
+
+  if (players.length >= 8) {
+    throw new Error('Lobby is full (max 8 players)')
+  }
+
+  const playerUsername = username || `Guest-${Math.random().toString(36).substring(7)}`
+
+  if (username) {
+    const duplicate = players.find((p) => p.username.toLowerCase() === username.toLowerCase())
+    if (duplicate) {
+      throw new Error('Username already taken in this lobby')
+    }
+  }
+
+  const nextJoinOrder = players.length > 0 ? Math.max(...players.map((p) => p.join_order)) + 1 : 0
+
+  const { data, error } = await supabase
+    .from('players')
+    .insert({
+      game_room_id: gameRoomId,
+      username: playerUsername,
+      score: 0,
+      join_order: nextJoinOrder,
+      last_active_at: new Date().toISOString(),
+    })
+    .select('*')
+    .single()
+
+  if (error || !data) throw getError('Failed to create player', error)
+  log('createPlayer', { gameRoomId, playerId: data.id, username: playerUsername })
+  return data as PlayerRow
+}
+
+export const updatePlayerUsername = async (playerId: string, username: string): Promise<void> => {
+  const { error } = await supabase
+    .from('players')
+    .update({ username })
+    .eq('id', playerId)
+
+  if (error) throw getError('Failed to update player username', error)
+  log('updatePlayerUsername', { playerId, username })
+}
+
+export const startGame = async (roomId: string): Promise<GameRoundRow> => {
+  const players = await getPlayersForRoom(roomId)
+
+  if (players.length < 3) {
+    throw new Error('Need at least 3 players to start')
+  }
+
+  await updateRoomStatus(roomId, 'in_progress')
+
+  const producer = deriveProducerForRound(players, 1)
+  const round = await createRound({
+    game_room_id: roomId,
+    round_number: 1,
+    producer_id: producer.id,
+    vibe_card_text: pickRandomVibeCard(),
+  })
+
+  const artistIds = players.filter((p) => p.id !== producer.id).map((p) => p.id)
+  const { DEFAULT_GAME_CONFIG } = await import('@/constants')
+  await dealCardsToArtists(round.id, artistIds, DEFAULT_GAME_CONFIG.handSize)
+
+  log('startGame', { roomId, playerCount: players.length })
+  return round
+}
