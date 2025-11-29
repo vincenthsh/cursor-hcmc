@@ -109,12 +109,18 @@ export const useGameState = (
   [currentPlayerId])
 
   const derivePhase = useCallback(
-    (roundStatus: string, submissions: SongSubmission[]): GameState['gamePhase'] => {
+    (
+      roundStatus: string,
+      submissions: SongSubmission[],
+      totalArtists: number
+    ): GameState['gamePhase'] => {
       if (submissions.some((s) => s.songStatus === 'pending' || s.songStatus === 'generating')) {
         return 'generating'
       }
       if (roundStatus === 'selecting') {
-        return submissions.length > 0 ? 'listening' : 'selecting'
+        // Only move to listening when ALL artists have submitted
+        const submittedCount = submissions.length
+        return submittedCount === totalArtists ? 'listening' : 'selecting'
       }
       if (roundStatus === 'completed') return 'results'
       return 'listening'
@@ -142,13 +148,14 @@ export const useGameState = (
       }
 
       const [hand, submissionRows] = await Promise.all([
-        currentPlayerId ? getHandForPlayer(round.id, currentPlayerId) : Promise.resolve([] as PlayerHand[]),
+        currentPlayerId ? getHandForPlayer(round.id, currentPlayerId).then(h => h as PlayerHand[]) : Promise.resolve([] as PlayerHand[]),
         getSubmissionsForRound(round.id),
       ])
 
       const submissions = mapSubmissions(submissionRows)
       const clientPlayers = mapPlayers(players, round.producer_id, submissions)
-      const phase = derivePhase(round.status, submissions)
+      const totalArtistsInRound = players.filter((p) => p.id !== round.producer_id).length
+      const phase = derivePhase(round.status, submissions, totalArtistsInRound)
       const hostId = players[0]?.id
 
       setGameState((prev) => {
