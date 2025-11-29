@@ -1,5 +1,5 @@
 import supabase from './supabase'
-import { LYRIC_CARD_TEMPLATES, VIBE_CARDS } from '@/constants'
+import { VIBE_CARDS } from '@/constants'
 import { PlayerHand } from '@/types'
 import { computeFinalLyric } from './gameLogic'
 
@@ -164,18 +164,30 @@ export const dealCardsToArtists = async (
   artistIds: string[],
   handSize = 5
 ): Promise<void> => {
-  const cards = [...LYRIC_CARD_TEMPLATES]
+  // Fetch lyric cards from database
+  const { data: lyricCards, error: fetchError } = await supabase
+    .from('lyric_cards')
+    .select('id, card_text')
+
+  if (fetchError || !lyricCards || lyricCards.length === 0) {
+    throw getError('Failed to fetch lyric cards from database', fetchError)
+  }
+
   const inserts: Omit<PlayerHandRow, 'id'>[] = []
 
   for (const artistId of artistIds) {
-    const shuffled = cards.sort(() => Math.random() - 0.5).slice(0, handSize)
+    // Shuffle and deal cards from database
+    const shuffled = [...lyricCards]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, handSize)
+
     shuffled.forEach((card, idx) => {
       inserts.push({
         round_id: roundId,
         player_id: artistId,
-        lyric_card_text: card.display,
-        template: card.template,
-        blank_count: card.blank_count,
+        lyric_card_text: card.card_text,
+        template: null, // No template needed - cards are complete phrases
+        blank_count: 0, // No blanks to fill
         position: idx,
         is_played: false,
       })
@@ -184,7 +196,7 @@ export const dealCardsToArtists = async (
 
   const { error } = await supabase.from('player_hands').insert(inserts)
   if (error) throw getError('Failed to deal cards', error)
-  log('dealCardsToArtists', { roundId, artistCount: artistIds.length, handSize })
+  log('dealCardsToArtists', { roundId, artistCount: artistIds.length, handSize, cardsInDb: lyricCards.length })
 }
 
 export const getHandForPlayer = async (
