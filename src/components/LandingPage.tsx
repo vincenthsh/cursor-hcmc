@@ -5,8 +5,9 @@ import { createRoom, createPlayer, getRoomByCode, getAvailableRooms, GameRoomRow
 import { saveSession } from '@/utils/session'
 import { formatRoomCodeInput, isRoomCodeComplete } from '@/utils/roomCode'
 import InstructionsModal from '@/components/InstructionsModal'
+import GameHistoryTab from '@/components/GameHistoryTab'
 
-type Tab = 'create' | 'join' | 'browse'
+type Tab = 'create' | 'join' | 'browse' | 'history'
 
 export default function LandingPage() {
   const navigate = useNavigate()
@@ -218,6 +219,16 @@ export default function LandingPage() {
           >
             Browse Games
           </button>
+          <button
+            onClick={() => setTab('history')}
+            className={`pb-4 px-4 font-semibold transition-colors ${
+              tab === 'history'
+                ? 'border-b-2 border-orange-600 text-orange-400'
+                : 'text-gray-400 hover:text-gray-300'
+            }`}
+          >
+            Game History
+          </button>
         </div>
 
         {/* Tab Content */}
@@ -327,6 +338,8 @@ export default function LandingPage() {
             )}
           </div>
         )}
+
+        {tab === 'history' && <GameHistoryTab />}
 
         {/* Delete Modal */}
         {showDeleteModal && roomToDelete && (

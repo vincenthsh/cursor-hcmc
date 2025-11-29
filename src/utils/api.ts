@@ -562,3 +562,91 @@ export const getCompletedRounds = async (roomId: string): Promise<GameRoundRow[]
   log('getCompletedRounds', { roomId, count: data?.length || 0 })
   return (data || []) as GameRoundRow[]
 }
+
+// ============================================
+// GAME HISTORY API
+// ============================================
+
+export interface GameHistoryRoom extends GameRoomRow {
+  playerCount: number
+  completedRounds: number
+  createdAt: string
+}
+
+export const getGameHistory = async (): Promise<GameHistoryRoom[]> => {
+  const { data: rooms, error: roomsError } = await supabase
+    .from('game_rooms')
+    .select('*')
+    .in('status', ['in_progress', 'completed'])
+    .order('created_at', { ascending: false })
+
+  if (roomsError || !rooms) throw getError('Failed to load game history', roomsError)
+
+  // Get player counts and completed rounds for each room
+  const historyRooms = await Promise.all(
+    rooms.map(async (room) => {
+      const { data: players } = await supabase
+        .from('players')
+        .select('id')
+        .eq('game_room_id', room.id)
+
+      const { data: completedRounds } = await supabase
+        .from('game_rounds')
+        .select('id')
+        .eq('game_room_id', room.id)
+        .eq('status', 'completed')
+
+      return {
+        ...room,
+        playerCount: players?.length || 0,
+        completedRounds: completedRounds?.length || 0,
+        createdAt: room.created_at,
+      } as GameHistoryRoom
+    })
+  )
+
+  log('getGameHistory', { count: historyRooms.length })
+  return historyRooms
+}
+
+export interface RoundWithSubmissions extends GameRoundRow {
+  submissions: (SubmissionRow & { playerUsername: string })[]
+}
+
+export const getRoundsWithSubmissions = async (roomId: string): Promise<RoundWithSubmissions[]> => {
+  const { data: rounds, error: roundsError } = await supabase
+    .from('game_rounds')
+    .select('*')
+    .eq('game_room_id', roomId)
+    .order('round_number', { ascending: true })
+
+  if (roundsError || !rounds) throw getError('Failed to load rounds', roundsError)
+
+  // Get submissions with player info for each round
+  const roundsWithSubmissions = await Promise.all(
+    rounds.map(async (round) => {
+      const { data: submissions, error: submissionsError } = await supabase
+        .from('submissions')
+        .select('*, players!inner(username)')
+        .eq('round_id', round.id)
+
+      if (submissionsError) {
+        log('Error loading submissions for round', round.id, submissionsError)
+        return { ...round, submissions: [] } as RoundWithSubmissions
+      }
+
+      const formattedSubmissions = (submissions || []).map((sub) => ({
+        ...sub,
+        playerUsername: (sub as { players: { username: string } }).players.username,
+      }))
+
+      return {
+        ...round,
+        submissions: formattedSubmissions,
+      } as RoundWithSubmissions
+    })
+  )
+
+  log('getRoundsWithSubmissions', { roomId, count: roundsWithSubmissions.length })
+  return roundsWithSubmissions
+}
