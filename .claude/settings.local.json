@@ -6,7 +6,8 @@
       "Bash(git push:*)",
       "Bash(git pull:*)",
       "Bash(find:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(pnpm run lint:*)"
     ],
     "deny": [],
     "ask": []
