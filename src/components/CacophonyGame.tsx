@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Clock,
   Music,
@@ -9,9 +9,12 @@ import {
   Users,
   UserX,
   MonitorSmartphone,
+  History,
 } from 'lucide-react'
 import { useGameState } from '@/hooks'
 import { AudioPlayer } from '@/components/AudioPlayer'
+import GameHistoryDrawer from '@/components/GameHistoryDrawer'
+import { getCompletedRounds, getSubmissionsForRound, getPlayersForRoom } from '@/utils/api'
 
 interface CacophonyGameProps {
   roomCode?: string
@@ -44,6 +47,84 @@ const CacophonyGame = ({ roomCode, playerId }: CacophonyGameProps) => {
   const isHost = Boolean(yourPlayer?.id && yourPlayer.id === gameState.hostPlayerId)
   const containerWidth = layoutMode === 'controller' ? 'max-w-3xl' : 'max-w-6xl'
   const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  // Game history drawer state
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const [historicalRounds, setHistoricalRounds] = useState<any[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+
+  // Load historical rounds when drawer opens
+  const loadHistoricalRounds = async () => {
+    if (!gameState.roomId || loadingHistory) return
+
+    setLoadingHistory(true)
+    try {
+      const completedRounds = await getCompletedRounds(gameState.roomId)
+      const allPlayers = await getPlayersForRoom(gameState.roomId)
+
+      const transformedRounds = await Promise.all(
+        completedRounds.map(async (round) => {
+          const submissions = await getSubmissionsForRound(round.id)
+          const producerPlayer = allPlayers.find((p) => p.id === round.producer_id)
+
+          // Build final lyric from card text and filled blanks
+          const buildFinalLyric = (sub: typeof submissions[0]) => {
+            if (!sub.filled_blanks || Object.keys(sub.filled_blanks).length === 0) {
+              return sub.lyric_card_text || ''
+            }
+            let result = sub.lyric_card_text || ''
+            Object.entries(sub.filled_blanks).forEach(([key, value]) => {
+              result = result.replace(`[${key}]`, value)
+            })
+            return result
+          }
+
+          const winningSubmission = submissions.find((s) => s.is_winner)
+
+          return {
+            roundNumber: round.round_number,
+            vibeCard: round.vibe_card_text || '',
+            producer: {
+              id: round.producer_id || '',
+              name: producerPlayer?.username || 'Unknown',
+            },
+            submissions: submissions.map((sub) => {
+              const playerInfo = allPlayers.find((p) => p.id === sub.player_id)
+              return {
+                id: sub.id,
+                playerId: sub.player_id || '',
+                playerName: playerInfo?.username || 'Unknown',
+                lyric: buildFinalLyric(sub),
+                audioUrl: sub.song_url,
+                isWinner: sub.is_winner || false,
+                producerRating: sub.producer_rating,
+              }
+            }),
+            winner: winningSubmission
+              ? {
+                  id: winningSubmission.player_id || '',
+                  name: allPlayers.find((p) => p.id === winningSubmission.player_id)?.username || 'Unknown',
+                }
+              : undefined,
+          }
+        })
+      )
+
+      setHistoricalRounds(transformedRounds)
+    } catch (error) {
+      console.error('Failed to load historical rounds:', error)
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
+
+  // Load history when drawer opens
+  useEffect(() => {
+    if (isHistoryOpen) {
+      void loadHistoricalRounds()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHistoryOpen])
 
   useEffect(() => {
     const audio = audioRef.current
@@ -458,8 +539,20 @@ const CacophonyGame = ({ roomCode, playerId }: CacophonyGameProps) => {
         )}
 
         {/* Player Status Bar */}
-        <div className="bg-gray-800 p-4 rounded-lg flex flex-wrap gap-4">
-          {gameState.players.map((player) => (
+        <div className="bg-gray-800 p-4 rounded-lg">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Players</h3>
+            <button
+              type="button"
+              onClick={() => setIsHistoryOpen(true)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded-lg transition-colors text-sm font-semibold"
+            >
+              <History className="w-4 h-4" />
+              Game History
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-4">
+            {gameState.players.map((player) => (
             <div
               key={player.id}
               className={`flex items-center gap-2 bg-gray-700 px-4 py-2 rounded-lg ${
@@ -499,6 +592,7 @@ const CacophonyGame = ({ roomCode, playerId }: CacophonyGameProps) => {
               )}
             </div>
           ))}
+          </div>
         </div>
         {gameState.error && (
           <div className="mt-3 text-sm text-red-400">{gameState.error}</div>
@@ -518,6 +612,14 @@ const CacophonyGame = ({ roomCode, playerId }: CacophonyGameProps) => {
         {gameState.gamePhase === 'listening' && renderListening()}
         {gameState.gamePhase === 'results' && renderResults()}
       </div>
+
+      {/* Game History Drawer */}
+      <GameHistoryDrawer
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        rounds={historicalRounds}
+        currentRound={gameState.currentRound}
+      />
     </div>
   )
 }
