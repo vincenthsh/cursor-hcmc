@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  body {
+    @apply bg-gray-900 text-white;
+  }
+}
+
+@layer components {
+  .gradient-text {
+    @apply bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent;
+  }
+
+  .glass-card {
+    @apply bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl;
+  }
+
+  .game-button {
+    @apply px-6 py-3 rounded-xl font-semibold transition-all transform hover:scale-105 active:scale-95;
+  }
+
+  .primary-button {
+    @apply game-button bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-lg;
+  }
+
+  .secondary-button {
+    @apply game-button bg-gray-800 hover:bg-gray-700 text-white border border-gray-600;
+  }
+}
