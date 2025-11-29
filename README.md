@@ -65,7 +65,6 @@ Match wild music genres (vibe cards) with ridiculous lyrics (lyric cards) to mak
 - ESLint + Prettier
 - TypeScript strict mode
 
----
 
 ## Getting Started
 
