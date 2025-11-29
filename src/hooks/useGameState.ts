@@ -114,13 +114,18 @@ export const useGameState = (
       submissions: SongSubmission[],
       totalArtists: number
     ): GameState['gamePhase'] => {
-      if (submissions.some((s) => s.songStatus === 'pending' || s.songStatus === 'generating')) {
-        return 'generating'
-      }
+      // If still in selecting phase and not all artists have submitted, stay in selecting
       if (roundStatus === 'selecting') {
-        // Only move to listening when ALL artists have submitted
         const submittedCount = submissions.length
-        return submittedCount === totalArtists ? 'listening' : 'selecting'
+        if (submittedCount < totalArtists) {
+          return 'selecting'
+        }
+        // All artists have submitted, but check if any are still generating
+        if (submissions.some((s) => s.songStatus === 'pending' || s.songStatus === 'generating')) {
+          return 'generating'
+        }
+        // All submitted and all generated, move to listening
+        return 'listening'
       }
       if (roundStatus === 'completed') return 'results'
       return 'listening'
@@ -199,6 +204,12 @@ export const useGameState = (
   }, [loadRoundState])
 
   useEffect(() => {
+    // Skip polling during generating phase - Suno service is managing progress updates
+    // Resume polling once songs are generated to detect transition to listening phase
+    if (gameState.gamePhase === 'generating') {
+      return undefined
+    }
+
     const interval = setInterval(() => {
       loadRoundState({ silent: true })
     }, gameState.isPaused ? POLL_INTERVAL_PAUSED : POLL_INTERVAL_ACTIVE)
@@ -468,18 +479,8 @@ export const useGameState = (
     return undefined
   }, [submittedCount, gameState.gamePhase, totalArtists, gameState.isPaused])
 
-  useEffect(() => {
-    if (gameState.gamePhase !== 'generating' || gameState.isPaused) return undefined
-
-    const interval = setInterval(() => {
-      setGameState((prev) => ({
-        ...prev,
-        generationProgress: Math.min(98, prev.generationProgress + 4),
-      }))
-    }, 1200)
-
-    return () => clearInterval(interval)
-  }, [gameState.gamePhase, gameState.isPaused])
+  // Progress bar is now driven entirely by Suno service callback in waitForCompletionWithProgress()
+  // This eliminates the manual increment loop that was causing jumps/conflicts
 
   const pauseGame = useCallback(async () => {
     if (!gameState.roomId || yourPlayer?.id !== gameState.hostPlayerId) return
