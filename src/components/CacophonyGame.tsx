@@ -12,7 +12,12 @@ import {
 } from 'lucide-react'
 import { useGameState } from '@/hooks'
 
-const CacophonyGame = () => {
+interface CacophonyGameProps {
+  roomCode?: string
+  playerId?: string
+}
+
+const CacophonyGame = ({ roomCode, playerId }: CacophonyGameProps) => {
   const {
     gameState,
     yourPlayer,
@@ -31,7 +36,7 @@ const CacophonyGame = () => {
     selectWinner,
     nextRound,
     formatTime,
-  } = useGameState()
+  } = useGameState(roomCode, playerId)
 
   const searchParams = useMemo(() => new URLSearchParams(window.location.search), [])
   const layoutMode = searchParams.get('display') === 'controller' || searchParams.get('mode') === 'controller' ? 'controller' : 'display'
