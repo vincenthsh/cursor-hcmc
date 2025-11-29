@@ -1,4 +1,5 @@
 import type { GameConfig } from "@/types";
+import { GAME_MECHANICS, TIMING } from "@/config/gameConfig";
 
 export const VIBE_CARDS = [
 	"A heartbreaking Country ballad about ______",
@@ -585,14 +586,14 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
 			isYou: false,
 		},
 	],
-	timerDuration: 60,
-	handSize: 5,
+	timerDuration: GAME_MECHANICS.timerDuration,
+	handSize: GAME_MECHANICS.handSize,
 };
 
 export const GAME_CONSTANTS = {
-	GENERATION_INTERVAL: 50, // ms
-	GENERATION_INCREMENT: 2, // percentage
-	AUTO_SUBMIT_DELAY: 1500, // ms
-	PHASE_TRANSITION_DELAY: 1000, // ms
-	PROGRESS_UPDATE_INTERVAL: 50, // ms
+	GENERATION_INTERVAL: TIMING.generationInterval,
+	GENERATION_INCREMENT: TIMING.generationIncrement,
+	AUTO_SUBMIT_DELAY: TIMING.autoSubmitDelay,
+	PHASE_TRANSITION_DELAY: TIMING.phaseTransitionDelay,
+	PROGRESS_UPDATE_INTERVAL: TIMING.progressUpdateInterval,
 } as const;

@@ -2,6 +2,7 @@ import supabase from './supabase'
 import { VIBE_CARDS } from '@/constants'
 import { PlayerHand } from '@/types'
 import { computeFinalLyric } from './gameLogic'
+import { GAME_MECHANICS, ROOM_CODE } from '@/config/gameConfig'
 
 const DEBUG_LOGS = import.meta.env.VITE_DEBUG_LOGS === 'true'
 const log = (...args: unknown[]) => {
@@ -162,7 +163,7 @@ export const updateRoundStatus = async (
 export const dealCardsToArtists = async (
   roundId: string,
   artistIds: string[],
-  handSize = 5
+  handSize = GAME_MECHANICS.handSize
 ): Promise<void> => {
   // Fetch lyric cards from database
   const { data: lyricCards, error: fetchError } = await supabase
@@ -372,14 +373,14 @@ export const pickRandomVibeCard = (): string => {
 // Lobby & Session Management
 
 export const generateRoomCode = (): string => {
-  const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  return Array.from({ length: 6 }, () =>
+  const ALPHABET = ROOM_CODE.validChars
+  return Array.from({ length: ROOM_CODE.length }, () =>
     ALPHABET[Math.floor(Math.random() * ALPHABET.length)]
   ).join('')
 }
 
-export const createRoom = async (targetRounds: number = 3): Promise<GameRoomRow> => {
-  const maxAttempts = 10
+export const createRoom = async (targetRounds: number = GAME_MECHANICS.defaultTargetRounds): Promise<GameRoomRow> => {
+  const maxAttempts = ROOM_CODE.maxGenerationAttempts
   let attempts = 0
 
   while (attempts < maxAttempts) {
@@ -469,8 +470,8 @@ export const createPlayer = async (
 
   const players = await getPlayersForRoom(gameRoomId)
 
-  if (players.length >= 8) {
-    throw new Error('Lobby is full (max 8 players)')
+  if (players.length >= GAME_MECHANICS.maxPlayers) {
+    throw new Error(`Lobby is full (max ${GAME_MECHANICS.maxPlayers} players)`)
   }
 
   const playerUsername = username || `Guest-${Math.random().toString(36).substring(7)}`
@@ -514,8 +515,8 @@ export const updatePlayerUsername = async (playerId: string, username: string): 
 export const startGame = async (roomId: string): Promise<GameRoundRow> => {
   const players = await getPlayersForRoom(roomId)
 
-  if (players.length < 3) {
-    throw new Error('Need at least 3 players to start')
+  if (players.length < GAME_MECHANICS.minPlayersToStart) {
+    throw new Error(`Need at least ${GAME_MECHANICS.minPlayersToStart} players to start`)
   }
 
   await updateRoomStatus(roomId, 'in_progress')
@@ -547,4 +548,17 @@ export const deleteRoom = async (roomId: string): Promise<void> => {
 
   if (error) throw getError('Failed to delete room', error)
   log('deleteRoom', { roomId })
+}
+
+export const getCompletedRounds = async (roomId: string): Promise<GameRoundRow[]> => {
+  const { data, error } = await supabase
+    .from('game_rounds')
+    .select('*')
+    .eq('game_room_id', roomId)
+    .eq('status', 'completed')
+    .order('round_number', { ascending: true })
+
+  if (error) throw getError('Failed to load completed rounds', error)
+  log('getCompletedRounds', { roomId, count: data?.length || 0 })
+  return (data || []) as GameRoundRow[]
 }

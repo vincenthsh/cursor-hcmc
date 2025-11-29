@@ -240,7 +240,7 @@ class SunoApiService {
       instrumental?: boolean
     } = {}
   ): Promise<{ playerId: number; taskId: string }[]> {
-    const { style = vibeCard, model = 'V4_5', instrumental = false } = options
+    const { model = 'V4_5', instrumental = false } = options
 
     const tasks = lyrics.map(async ({ playerId, lyric }) => {
       const prompt = this.createPrompt(vibeCard, lyric)
