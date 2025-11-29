@@ -1,157 +1,242 @@
-# Cacophony Game 🎵
+# Cacophony Game 🎵🎮
 
-A multiplayer music battle game built with React, TypeScript, and Tailwind CSS. Players compete to create the funniest song combinations by matching music genres with humorous lyrics.
+> **A multiplayer music battle game where players compete to create the funniest AI-generated songs.**
+
+Match wild music genres (vibe cards) with ridiculous lyrics (lyric cards) to make your friends laugh! Built with React, TypeScript, Supabase, and Suno AI.
+
+---
+
+## Quick Links
+
+📚 **[Documentation](/docs)** - Complete guides and references
+🚀 **[Quick Start](/docs/QUICK_START.md)** - Get running in 5 minutes
+🎮 **[Game Guide](/docs/GAME_GUIDE.md)** - How to play
+🏗️ **[Architecture](/docs/ARCHITECTURE.md)** - Technical overview
+⚙️ **[Configuration](/docs/CONFIGURATION.md)** - All config options
+📋 **[TODO & Roadmap](/docs/TODO.md)** - Feature tracking
+
+---
 
 ## Features
 
-- **Real-time multiplayer simulation**: Play against AI opponents
-- **Turn-based gameplay**: Rotate between Producer and Artist roles
-- **Dynamic song generation**: Simulated AI song creation process
-- **Interactive UI**: Beautiful, responsive interface with animations
-- **Score tracking**: Keep track of winners across multiple rounds
-- **Timer system**: Add excitement with countdown timers
+✨ **Real Multiplayer** - 3-8 players per room
+🎵 **AI Song Generation** - Powered by Suno AI
+🃏 **583 Lyric Cards** - Pre-written humorous phrases
+🎭 **103 Vibe Cards** - Wild genre combinations
+🎯 **Turn-based Gameplay** - Producer and Artist roles rotate
+⏱️ **Timed Rounds** - 60-second card selection
+🏆 **Score Tracking** - Track winners across rounds
+📱 **Responsive UI** - Works on desktop and mobile
 
-## Game Rules
+---
 
-1. **Producer Phase**: One player is chosen as the Producer
-2. **Card Selection**: Players select lyric cards that match the vibe
-3. **Song Generation**: AI creates songs based on the combinations
-4. **Voting**: The Producer picks the funniest/most creative song
-5. **Scoring**: Winner gets a point and roles rotate for the next round
+## Game Overview
+
+### How It Works
+
+1. **Host creates a room** → Share 6-character code with friends
+2. **Players join** → Enter room code and username
+3. **Each round:**
+   - **Producer** gets a vibe card (e.g., "A sad Country song about ______")
+   - **Artists** select lyric cards to answer (e.g., "pizza delivery gone wrong")
+   - **AI generates songs** combining vibe + lyrics
+   - **Producer votes** for the funniest song
+   - **Winner scores** a point!
+4. **Game ends** after target rounds (default: 5)
+5. **Highest score wins!**
+
+---
 
 ## Tech Stack
 
-- **React 18** - UI framework
-- **TypeScript** - Type safety
-- **Vite** - Build tool
-- **Tailwind CSS** - Styling
-- **Lucide React** - Icons
-- **Supabase (Postgres)** - Realtime DB + row-level security for multiplayer state
+**Frontend:**
+- React 18 + TypeScript
+- Vite (build tool)
+- Tailwind CSS (styling)
+- React Router DOM (routing)
+- Lucide React (icons)
+
+**Backend:**
+- Supabase (PostgreSQL + Realtime)
+- Suno API (AI music generation)
+
+**Development:**
+- pnpm (package manager)
+- ESLint + Prettier
+- TypeScript strict mode
+
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js (v18+)
-- npm or yarn
+- Node.js 18+ (recommend v20+)
+- pnpm (or npm/yarn)
+- Supabase account
+- Suno API key
 
 ### Installation
 
-1. Clone the repository:
 ```bash
+# 1. Clone the repo
 git clone <repository-url>
 cd cacophony-game
+
+# 2. Install dependencies
+pnpm install
+
+# 3. Set up environment
+cp .env.example .env
+# Edit .env with your Supabase and Suno credentials
+
+# 4. Initialize database
+# Run db/init.sql in Supabase SQL editor
+# Optionally run db/seed_game.sql for test data
+
+# 5. Start dev server
+pnpm run dev
 ```
 
-2. Install dependencies:
-```bash
-npm install
-```
+Visit `http://localhost:3000` and start playing!
 
-3. Start the development server:
-```bash
-npm run dev
-```
+**Detailed setup:** See [Quick Start Guide](/docs/QUICK_START.md)
 
-4. Open your browser and navigate to `http://localhost:3000`
+---
 
-### Database Setup (Supabase)
+## Documentation
 
-1. Create a new Supabase project and grab the SQL editor.
-2. Run the schema in `init.sql` (UUID extension + 5 tables: `game_rooms`, `players`, `game_rounds`, `player_hands`, `submissions` with permissive RLS policies for now).
-3. (Optional) Verify schema:
-   - `select * from game_rooms limit 1;`
-   - `select * from player_hands limit 1;`
-4. Store your Supabase URL/anon key in your frontend env file for client queries (e.g., `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`).
+### Getting Started
+- 🚀 **[Quick Start](/docs/QUICK_START.md)** - Installation and setup
+- 🎮 **[Game Guide](/docs/GAME_GUIDE.md)** - How to play, rules, strategy
 
-Schema highlights:
-- `game_rooms`: join code, status, round counters.
-- `players`: username, score, join_order (producer rotation).
-- `game_rounds`: vibe card text, producer_id, winner_id, status.
-- `player_hands`: 5 dealt cards per artist per round, `is_played` flag for validation.
-- `submissions`: filled blanks, Suno task state, song URL, producer rating.
+### Technical Documentation
+- 🏗️ **[Architecture](/docs/ARCHITECTURE.md)** - System design and data flow
+- ⚙️ **[Configuration](/docs/CONFIGURATION.md)** - Environment variables and settings
+- 📋 **[TODO & Roadmap](/docs/TODO.md)** - Feature tracking and future plans
 
-### Build for Production
+### Legacy Documentation *(archived)*
+- [CLAUDE.md](CLAUDE.md) - Original project guidance
+- [INIT_DB.md](INIT_DB.md) - Database setup details
+- [SPEC.md](SPEC.md) - Game specifications
 
-```bash
-npm run build
-```
-
-### Code Quality
-
-```bash
-# Run ESLint
-npm run lint
-
-# Format code with Prettier
-npm run format
-```
+---
 
 ## Project Structure
 
 ```
-src/
-├── components/         # React components
-│   ├── CacophonyGame.tsx
-│   └── index.ts
-├── hooks/             # Custom React hooks
-│   ├── useGameState.ts
-│   └── index.ts
-├── types/             # TypeScript type definitions
-│   ├── game.ts
-│   └── index.ts
-├── utils/             # Utility functions
-│   ├── gameLogic.ts
-│   └── index.ts
-├── constants/         # Game constants and data
-│   ├── gameData.ts
-│   └── index.ts
-├── App.tsx            # Main App component
-├── main.tsx           # Entry point
-└── index.css          # Global styles
+cursor-hcmc/
+├── src/
+│   ├── components/       # React components
+│   ├── hooks/            # Custom React hooks
+│   ├── config/           # Configuration files
+│   ├── services/         # External API wrappers
+│   ├── utils/            # Utility functions
+│   ├── constants/        # Static data
+│   ├── types/            # TypeScript types
+│   └── App.tsx           # Root component
+├── db/                   # Database scripts
+│   ├── init.sql          # Schema initialization
+│   └── seed_game.sql     # Test data
+├── docs/                 # Documentation
+└── public/               # Static assets
 ```
+
+---
 
 ## Development
 
-### Adding New Features
+### Available Scripts
 
-1. **New Game Mechanics**: Add to `src/utils/gameLogic.ts`
-2. **New Components**: Add to `src/components/`
-3. **New Types**: Add to `src/types/game.ts`
-4. **New Constants**: Add to `src/constants/gameData.ts`
+```bash
+# Start dev server
+pnpm run dev
 
-### Code Style
+# Build for production
+pnpm run build
 
-This project uses:
-- **ESLint** for linting
-- **Prettier** for code formatting
-- **TypeScript** for type safety
-- **Conventional Commits** for commit messages
+# Run linter
+pnpm run lint
 
-### Custom Hooks
+# Format code
+pnpm run format
 
-The game logic is separated into custom hooks for better maintainability:
+# Type check
+pnpm exec tsc --noEmit
+```
 
-- `useGameState`: Manages all game state and game flow logic
+### Environment Variables
+
+Create a `.env` file with:
+
+```bash
+# Required
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_SUNO_API_KEY=your_suno_api_key
+
+# Optional (development)
+VITE_DEBUG_LOGS=true
+VITE_ROOM_CODE=ABC123
+```
+
+See [`.env.example`](.env.example) for all available options.
+
+---
 
 ## Contributing
 
+We welcome contributions! Here's how:
+
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+3. Make your changes
+4. Run linter and tests
+5. Commit: `git commit -m 'feat: add amazing feature'`
+6. Push: `git push origin feature/amazing-feature`
+7. Open a Pull Request
+
+### Priority Features
+
+Looking to contribute? These are high-impact features:
+
+- **Supabase Realtime migration** (replace polling)
+- **Final podium screen** (game end screen)
+- **Mobile responsiveness** improvements
+- **Authentication system** (user profiles)
+- **Test coverage** (E2E and unit tests)
+
+See [TODO.md](/docs/TODO.md) for full roadmap.
+
+---
+
+## Recent Updates
+
+### November 29, 2025
+
+**Major Changes:**
+- ✅ **Lyric card system overhaul** - Removed fill-in-the-blank, now simple phrase selection
+- ✅ **Centralized configuration** - All settings now in `gameConfig.ts`
+- ✅ **Database-driven cards** - 583 lyric cards + 103 vibe cards in database
+- ✅ **Documentation reorganization** - Split into focused guides in `/docs`
+- ✅ **UI enhancements** - Clickable instruction tabs, password-protected room deletion
+
+---
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Future Enhancements
+---
 
-- [ ] Real multiplayer support with WebSockets (integrate with Supabase realtime channels)
-- [ ] Actual AI song generation integration
-- [ ] Sound effects and background music
-- [ ] Custom game rooms and lobbies
-- [ ] Player profiles and statistics
-- [ ] Mobile app version
-- [ ] Different game modes and themes
+## Acknowledgments
+
+- Built with [React](https://react.dev/)
+- Database by [Supabase](https://supabase.com/)
+- AI music by [Suno](https://suno.ai/)
+- Icons by [Lucide](https://lucide.dev/)
+
+---
+
+**Made with ❤️ for creating musical chaos with friends**
+
+*Have questions? Check the [documentation](/docs) or open an issue!*

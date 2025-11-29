@@ -27,6 +27,7 @@ import {
 import { computeFinalLyric, formatTime, shouldAutoSubmit, shouldMoveToGeneration } from '@/utils/gameLogic'
 import { getSunoConfig, isSunoConfigured } from '@/config/suno'
 import SunoApiService, { SunoApiError } from '@/services/sunoApi'
+import { POLLING, DEV, SUNO, FALLBACK } from '@/config/gameConfig'
 
 const initialState: GameState = {
   gamePhase: 'waiting',
@@ -51,10 +52,6 @@ const initialState: GameState = {
   error: undefined,
 }
 
-const INACTIVITY_THRESHOLD_MS = 3 * 60 * 1000
-const POLL_INTERVAL_ACTIVE = 2500
-const POLL_INTERVAL_PAUSED = 5000
-
 // Initialize SunoApiService if configured
 const sunoApiService = isSunoConfigured() ? new SunoApiService(getSunoConfig()) : null
 
@@ -65,8 +62,8 @@ export const useGameState = (
   const [gameState, setGameState] = useState<GameState>(initialState)
 
   // Use provided params, fall back to env vars for backwards compatibility in dev
-  const effectiveRoomCode = roomCode || import.meta.env.VITE_ROOM_CODE || 'AB1234'
-  const effectivePlayerId = playerId || import.meta.env.VITE_PLAYER_ID || ''
+  const effectiveRoomCode = roomCode || DEV.defaultRoomCode
+  const effectivePlayerId = playerId || DEV.defaultPlayerId
   const currentPlayerId = effectivePlayerId
 
   const mapSubmissions = useCallback((rows: (Awaited<ReturnType<typeof getSubmissionsForRound>>)) =>
@@ -93,7 +90,7 @@ export const useGameState = (
   ): Player[] =>
     players.map((p) => {
       const lastActive = p.last_active_at ? new Date(p.last_active_at).getTime() : 0
-      const inactive = lastActive > 0 ? Date.now() - lastActive > INACTIVITY_THRESHOLD_MS : false
+      const inactive = lastActive > 0 ? Date.now() - lastActive > POLLING.inactivityThreshold : false
       return {
         id: p.id,
         name: p.username,
@@ -212,7 +209,7 @@ export const useGameState = (
 
     const interval = setInterval(() => {
       loadRoundState({ silent: true })
-    }, gameState.isPaused ? POLL_INTERVAL_PAUSED : POLL_INTERVAL_ACTIVE)
+    }, gameState.isPaused ? POLLING.pausedInterval : POLLING.activeInterval)
 
     return () => clearInterval(interval)
   }, [gameState.isPaused, gameState.gamePhase, loadRoundState])
@@ -286,13 +283,12 @@ export const useGameState = (
         // Use new SunoApiService
         // Replace the blank placeholders in the vibe card with the actual lyric
         const vibeWithLyric = gameState.vibeCard.replace(/_{2,}/g, finalLyric)
-        const productionNotes = 'Minimal intro, no outro. Simple lyrics, Short song, approx 30 seconds.'
 
         const taskId = await sunoApiService.generateMusic({
-          prompt: `Create a ${vibeWithLyric.toLowerCase()} ${productionNotes}`,
+          prompt: `Create a ${vibeWithLyric.toLowerCase()} ${SUNO.productionNotes}`,
           customMode: true,
           instrumental: false,
-          model: 'V4_5',
+          model: SUNO.modelVersion,
         })
 
         await updateSubmissionWithSuno(submission.id, {
@@ -309,8 +305,8 @@ export const useGameState = (
               setGameState((prev) => ({ ...prev, generationProgress: progress }))
             },
             {
-              maxWaitTime: 5 * 60 * 1000, // 5 minutes
-              pollInterval: 3000, // 3 seconds
+              maxWaitTime: SUNO.maxWaitTime,
+              pollInterval: SUNO.pollInterval,
             }
           )
 
@@ -337,11 +333,9 @@ export const useGameState = (
           console.error('❌ Suno generation failed:', err)
 
           // Use fallback audio only on error
-          const fallbackAudioUrl = 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
-
           await updateSubmissionWithSuno(submission.id, {
             song_status: 'failed',
-            song_url: fallbackAudioUrl,
+            song_url: FALLBACK.audioUrl,
             song_error: err instanceof Error ? err.message : 'Generation failed',
             suno_task_id: taskId,
           })
@@ -353,8 +347,8 @@ export const useGameState = (
         console.warn('Suno API not configured, using mock generation')
         await updateSubmissionWithSuno(submission.id, {
           song_status: 'completed',
-          song_url: 'https://mock-audio-url.com/song.mp3',
-          suno_task_id: 'mock-task-id',
+          song_url: FALLBACK.mockAudioUrl,
+          suno_task_id: FALLBACK.mockTaskId,
         })
       }
     } catch (err) {
