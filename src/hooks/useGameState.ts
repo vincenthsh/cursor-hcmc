@@ -144,26 +144,33 @@ export const useGameState = (
       const phase = derivePhase(round.status, submissions)
       const hostId = players[0]?.id
 
-      setGameState((prev) => ({
-        ...prev,
-        roomId: room.id,
-        hostPlayerId: hostId,
-        gamePhase: phase,
-        isPaused: room.is_paused,
-        players: clientPlayers,
-        currentRound: round.round_number,
-        roundId: round.id,
-        vibeCard: round.vibe_card_text,
-        yourHand: hand,
-        submissions,
-        currentSongIndex: round.listening_song_index ?? 0,
-        isPlaying: round.listening_is_playing ?? false,
-        listeningCueAt: round.listening_cue_at,
-        winner: round.winner_id,
-        generationProgress: phase === 'generating' ? prev.generationProgress : 100,
-        loading: false,
-        timer: room.is_paused ? prev.timer : DEFAULT_GAME_CONFIG.timerDuration,
-      }))
+      setGameState((prev) => {
+        // Only reset timer when phase changes (not during polling in same phase)
+        const phaseChanged = prev.gamePhase !== phase
+        const shouldResetTimer = phaseChanged && phase === 'selecting'
+
+        return {
+          ...prev,
+          roomId: room.id,
+          hostPlayerId: hostId,
+          gamePhase: phase,
+          isPaused: room.is_paused,
+          players: clientPlayers,
+          currentRound: round.round_number,
+          roundId: round.id,
+          vibeCard: round.vibe_card_text,
+          yourHand: hand,
+          submissions,
+          currentSongIndex: round.listening_song_index ?? 0,
+          isPlaying: round.listening_is_playing ?? false,
+          listeningCueAt: round.listening_cue_at,
+          winner: round.winner_id,
+          generationProgress: phase === 'generating' ? prev.generationProgress : 100,
+          loading: false,
+          // Only reset timer when entering selecting phase, otherwise preserve local timer
+          timer: shouldResetTimer ? DEFAULT_GAME_CONFIG.timerDuration : prev.timer,
+        }
+      })
     } catch (err) {
       setGameState((prev) => ({
         ...prev,

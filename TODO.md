@@ -19,10 +19,10 @@
 - [ ] Final podium view with top 3 players and scores
 
 ## Lobby / Session Management
-- [ ] Lobby UI for host to create game and show join code
-- [ ] Join flow for players entering join code (validate, error states, max players)
-- [ ] Start game action when minimum players reached; reflect `game_rooms.status`
-- [ ] Ensure unique join code generation and display current players in lobby
+- [x] Lobby UI for host to create game and show join code (React Router + Landing + Lobby components)
+- [x] Join flow for players entering join code (validate, error states, max players)
+- [x] Start game action when minimum players reached; reflect `game_rooms.status`
+- [x] Ensure unique join code generation and display current players in lobby (polling every 2s)
 
 ## Host Controls / Polish
 - [x] Host pause/resume; kick inactive players (polling-based)
