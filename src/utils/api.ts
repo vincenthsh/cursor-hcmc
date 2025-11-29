@@ -417,6 +417,30 @@ export const updateRoomStatus = async (
   log('updateRoomStatus', { roomId, status })
 }
 
+export const getAvailableRooms = async (): Promise<(GameRoomRow & { playerCount: number })[]> => {
+  const { data: rooms, error: roomsError } = await supabase
+    .from('game_rooms')
+    .select('*')
+    .eq('status', 'waiting')
+    .order('created_at', { ascending: false })
+
+  if (roomsError || !rooms) throw getError('Failed to load available rooms', roomsError)
+
+  // Fetch player counts for each room
+  const roomsWithCounts = await Promise.all(
+    rooms.map(async (room) => {
+      const players = await getPlayersForRoom(room.id)
+      return {
+        ...(room as GameRoomRow),
+        playerCount: players.length,
+      }
+    })
+  )
+
+  log('getAvailableRooms', { count: roomsWithCounts.length })
+  return roomsWithCounts
+}
+
 export const createPlayer = async (
   gameRoomId: string,
   username?: string
