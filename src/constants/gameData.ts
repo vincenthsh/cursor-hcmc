@@ -590,9 +590,6 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
 };
 
 export const GAME_CONSTANTS = {
-	GENERATION_INTERVAL: 50, // ms
-	GENERATION_INCREMENT: 2, // percentage
 	AUTO_SUBMIT_DELAY: 1500, // ms
 	PHASE_TRANSITION_DELAY: 1000, // ms
-	PROGRESS_UPDATE_INTERVAL: 50, // ms
 } as const;
