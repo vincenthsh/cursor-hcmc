@@ -14,6 +14,8 @@ export interface GameRoomRow {
   status: string
   current_round: number
   target_rounds: number
+  is_paused: boolean
+  paused_at: string | null
 }
 
 export interface PlayerRow {
@@ -22,6 +24,7 @@ export interface PlayerRow {
   username: string
   score: number
   join_order: number
+  last_active_at: string | null
 }
 
 export interface GameRoundRow {
@@ -32,6 +35,9 @@ export interface GameRoundRow {
   vibe_card_text: string
   status: string
   winner_id: string | null
+  listening_song_index: number
+  listening_is_playing: boolean
+  listening_cue_at: string | null
 }
 
 export interface PlayerHandRow {
@@ -77,6 +83,26 @@ export const getRoomByCode = async (roomCode: string): Promise<GameRoomRow> => {
   if (error || !data) throw getError('Failed to load game room', error)
   log('getRoomByCode', roomCode, data.id)
   return data as GameRoomRow
+}
+
+export const pauseGame = async (roomId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('game_rooms')
+    .update({ is_paused: true, paused_at: new Date().toISOString() })
+    .eq('id', roomId)
+
+  if (error) throw getError('Failed to pause game', error)
+  log('pauseGame', { roomId })
+}
+
+export const resumeGame = async (roomId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('game_rooms')
+    .update({ is_paused: false, paused_at: null })
+    .eq('id', roomId)
+
+  if (error) throw getError('Failed to resume game', error)
+  log('resumeGame', { roomId })
 }
 
 export const getPlayersForRoom = async (gameRoomId: string): Promise<PlayerRow[]> => {
@@ -187,6 +213,22 @@ export const markCardPlayed = async (cardId: string): Promise<void> => {
   log('markCardPlayed', { cardId })
 }
 
+export const deletePlayer = async (playerId: string): Promise<void> => {
+  const { error } = await supabase.from('players').delete().eq('id', playerId)
+  if (error) throw getError('Failed to remove player', error)
+  log('deletePlayer', { playerId })
+}
+
+export const updatePlayerActivity = async (playerId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('players')
+    .update({ last_active_at: new Date().toISOString() })
+    .eq('id', playerId)
+
+  if (error) throw getError('Failed to update player activity', error)
+  log('updatePlayerActivity', { playerId })
+}
+
 export const getSubmissionsForRound = async (
   roundId: string
 ): Promise<(SubmissionRow & { player: { username: string } })[]> => {
@@ -259,6 +301,24 @@ export const setWinner = async (roundId: string, submissionId: string, playerId:
 
   await updateRoundStatus(roundId, 'completed', playerId)
   log('setWinner', { roundId, submissionId, playerId })
+}
+
+export const updateListeningState = async (
+  roundId: string,
+  state: Partial<Pick<GameRoundRow, 'listening_song_index' | 'listening_is_playing' | 'listening_cue_at'>>
+): Promise<void> => {
+  const payload = {
+    ...state,
+    listening_cue_at: state.listening_cue_at ?? new Date().toISOString(),
+  }
+
+  const { error } = await supabase
+    .from('game_rounds')
+    .update(payload)
+    .eq('id', roundId)
+
+  if (error) throw getError('Failed to update listening state', error)
+  log('updateListeningState', { roundId, state })
 }
 
 export const awardPointToPlayer = async (playerId: string) => {

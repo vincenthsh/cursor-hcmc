@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useRef } from 'react'
 import {
   Clock,
   Music,
@@ -6,6 +7,8 @@ import {
   SkipForward,
   Trophy,
   Users,
+  UserX,
+  MonitorSmartphone,
 } from 'lucide-react'
 import { useGameState } from '@/hooks'
 
@@ -17,6 +20,9 @@ const CacophonyGame = () => {
     submittedCount,
     totalArtists,
     currentSong,
+    pauseGame,
+    resumeGame,
+    kickPlayer,
     selectCard,
     updateBlankValue,
     submitCard,
@@ -26,6 +32,31 @@ const CacophonyGame = () => {
     nextRound,
     formatTime,
   } = useGameState()
+
+  const searchParams = useMemo(() => new URLSearchParams(window.location.search), [])
+  const layoutMode = searchParams.get('display') === 'controller' || searchParams.get('mode') === 'controller' ? 'controller' : 'display'
+  const isHost = Boolean(yourPlayer?.id && yourPlayer.id === gameState.hostPlayerId)
+  const containerWidth = layoutMode === 'controller' ? 'max-w-3xl' : 'max-w-6xl'
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio || !currentSong?.songUrl) return
+
+    if (gameState.isPlaying) {
+      if (gameState.listeningCueAt) {
+        const offset = Math.max(0, (Date.now() - new Date(gameState.listeningCueAt).getTime()) / 1000)
+        if (Math.abs(audio.currentTime - offset) > 0.4) {
+          audio.currentTime = offset
+        }
+      }
+      audio.play().catch(() => {
+        /* ignore autoplay errors */
+      })
+    } else {
+      audio.pause()
+    }
+  }, [currentSong?.songUrl, gameState.isPlaying, gameState.listeningCueAt])
 
   const blanksFilled =
     (gameState.selectedCard?.blank_count || 0) === 0 ||
@@ -95,13 +126,13 @@ const CacophonyGame = () => {
               <button
                 key={idx}
                 onClick={() => selectCard(card)}
-                disabled={yourPlayer?.submitted}
+                disabled={yourPlayer?.submitted || gameState.isPaused}
                 className={`p-6 rounded-xl text-left transition-all transform hover:scale-105 ${
                   gameState.selectedCard === card
                     ? 'bg-gradient-to-br from-blue-600 to-cyan-600 ring-4 ring-cyan-400 shadow-2xl'
                     : 'bg-gray-800 hover:bg-gray-700'
                 } ${
-                  yourPlayer?.submitted
+                  yourPlayer?.submitted || gameState.isPaused
                     ? 'opacity-50 cursor-not-allowed'
                     : 'cursor-pointer'
                 }`}
@@ -133,7 +164,7 @@ const CacophonyGame = () => {
           {!yourPlayer?.submitted && (
             <button
               onClick={submitCard}
-              disabled={!gameState.selectedCard || !blanksFilled}
+              disabled={!gameState.selectedCard || !blanksFilled || gameState.isPaused}
               className="w-full py-4 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed hover:from-green-500 hover:to-emerald-500 transition-all shadow-lg"
             >
               Submit Card
@@ -145,11 +176,28 @@ const CacophonyGame = () => {
   )
 
   const renderGenerating = () => (
-    <div className="max-w-2xl mx-auto text-center py-20">
+    <div className="max-w-3xl mx-auto text-center py-20">
       <div className="mb-8">
-        <Music className="w-32 h-32 mx-auto mb-6 text-purple-500 animate-spin" />
-        <h2 className="text-3xl font-bold mb-4">Studio Recording in Progress...</h2>
-        <p className="text-gray-400 mb-8">AI musicians are creating your masterpieces</p>
+        <div className="relative w-32 h-32 mx-auto mb-6">
+          <div className="absolute inset-0 bg-purple-500/30 rounded-full animate-ping" />
+          <Music className="w-32 h-32 mx-auto text-purple-400 animate-spin-slow relative z-10" />
+        </div>
+        <h2 className="text-3xl font-bold mb-2">Studio Recording in Progress...</h2>
+        <p className="text-gray-400 mb-6">AI musicians are cooking. Grab a drink.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6 text-left">
+        {['Warming up vocals', 'Auto-tuning chaos', 'Mixing + mastering'].map((stage, idx) => (
+          <div
+            key={stage}
+            className={`p-4 rounded-xl border bg-gray-800 ${
+              gameState.generationProgress > (idx + 1) * 30 ? 'border-cyan-400' : 'border-gray-700'
+            }`}
+          >
+            <div className="text-sm text-gray-400">Stage {idx + 1}</div>
+            <div className="font-semibold">{stage}</div>
+          </div>
+        ))}
       </div>
 
       <div className="bg-gray-800 rounded-full h-8 overflow-hidden">
@@ -161,6 +209,19 @@ const CacophonyGame = () => {
             {Math.round(gameState.generationProgress)}%
           </span>
         </div>
+      </div>
+
+      <div className="flex justify-center items-end gap-1 mt-8 h-16">
+        {[...Array(30)].map((_, i) => (
+          <div
+            key={i}
+            className="w-2 bg-cyan-400 rounded-full animate-pulse"
+            style={{
+              height: `${20 + Math.random() * 80}%`,
+              animationDelay: `${i * 0.05}s`,
+            }}
+          />
+        ))}
       </div>
     </div>
   )
@@ -188,8 +249,11 @@ const CacophonyGame = () => {
           {/* Playback Controls */}
           <div className="flex justify-center items-center gap-4 mt-8">
             <button
-              onClick={togglePlaySong}
-              className="bg-white text-purple-900 p-4 rounded-full hover:bg-gray-200 transition-all shadow-lg"
+              onClick={isHost ? togglePlaySong : undefined}
+              disabled={!isHost}
+              className={`bg-white text-purple-900 p-4 rounded-full transition-all shadow-lg ${
+                isHost ? 'hover:bg-gray-200' : 'opacity-60 cursor-not-allowed'
+              }`}
             >
               {gameState.isPlaying ? (
                 <Pause className="w-8 h-8" />
@@ -199,8 +263,11 @@ const CacophonyGame = () => {
             </button>
             {gameState.currentSongIndex < gameState.submissions.length - 1 && (
               <button
-                onClick={nextSong}
-                className="bg-gray-700 text-white p-4 rounded-full hover:bg-gray-600 transition-all"
+                onClick={isHost ? nextSong : undefined}
+                disabled={!isHost}
+                className={`bg-gray-700 text-white p-4 rounded-full transition-all ${
+                  isHost ? 'hover:bg-gray-600' : 'opacity-60 cursor-not-allowed'
+                }`}
               >
                 <SkipForward className="w-6 h-6" />
               </button>
@@ -209,7 +276,13 @@ const CacophonyGame = () => {
 
           {currentSong?.songUrl && (
             <div className="mt-6">
-              <audio className="w-full" controls src={currentSong.songUrl} />
+              <audio ref={audioRef} className="w-full" controls src={currentSong.songUrl} />
+            </div>
+          )}
+
+          {!isHost && (
+            <div className="mt-3 text-xs text-gray-400 text-center">
+              Host drives playback; your view syncs on the next poll.
             </div>
           )}
 
@@ -240,11 +313,12 @@ const CacophonyGame = () => {
               <button
                 key={sub.playerId}
                 onClick={() => selectWinner(sub.playerId)}
+                disabled={gameState.isPaused}
                 className={`p-6 rounded-xl text-left transition-all transform hover:scale-105 ${
                   idx === gameState.currentSongIndex
                     ? 'bg-gradient-to-br from-yellow-600 to-orange-600 ring-4 ring-yellow-400'
                     : 'bg-gray-800 hover:bg-gray-700'
-                }`}
+                } ${gameState.isPaused ? 'opacity-60 cursor-not-allowed' : ''}`}
               >
                 <div className="text-sm text-gray-400 mb-2">{sub.playerName}</div>
                 <div className="font-semibold">{sub.lyric}</div>
@@ -311,7 +385,8 @@ const CacophonyGame = () => {
 
         <button
           onClick={nextRound}
-          className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl font-bold text-lg hover:from-purple-500 hover:to-pink-500 transition-all shadow-lg"
+          disabled={gameState.isPaused}
+          className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl font-bold text-lg hover:from-purple-500 hover:to-pink-500 transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
         >
           Next Round →
         </button>
@@ -322,27 +397,58 @@ const CacophonyGame = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white p-4 md:p-8">
       {/* Header */}
-      <div className="max-w-6xl mx-auto mb-8">
+      <div className={`${containerWidth} mx-auto mb-8`}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <Music className="w-10 h-10 text-purple-400" />
             <h1 className="text-4xl font-bold gradient-text">Cacophony</h1>
           </div>
-          <div className="text-right">
-            <div className="text-sm text-gray-400">Round {gameState.currentRound}</div>
-            <div className="text-lg font-semibold">
-              Producer:{' '}
-              <span className="text-yellow-400">{producer?.name}</span>
+          <div className="flex items-center gap-4">
+            <div className="hidden md:flex items-center gap-2 bg-gray-800 px-3 py-2 rounded-lg text-sm text-gray-300">
+              <MonitorSmartphone className="w-4 h-4" />
+              <span className="uppercase tracking-wide">{layoutMode === 'controller' ? 'Controller View' : 'Display View'}</span>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-gray-400">Round {gameState.currentRound}</div>
+              <div className="text-lg font-semibold">
+                Producer:{' '}
+                <span className="text-yellow-400">{producer?.name}</span>
+              </div>
             </div>
           </div>
         </div>
+
+        {isHost && (
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4 bg-gray-800 p-3 rounded-lg border border-gray-700">
+            <div className="flex items-center gap-2 text-sm text-gray-300">
+              <span>Host Controls</span>
+              <span className="text-gray-500">•</span>
+              <span>{gameState.isPaused ? 'Paused' : 'Live'}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={gameState.isPaused ? resumeGame : pauseGame}
+                className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                  gameState.isPaused
+                    ? 'bg-green-600 hover:bg-green-500'
+                    : 'bg-yellow-600 hover:bg-yellow-500'
+                }`}
+              >
+                {gameState.isPaused ? 'Resume' : 'Pause'}
+              </button>
+              <div className="text-xs text-gray-400">Polling-only sync; changes land within a few seconds.</div>
+            </div>
+          </div>
+        )}
 
         {/* Player Status Bar */}
         <div className="bg-gray-800 p-4 rounded-lg flex flex-wrap gap-4">
           {gameState.players.map((player) => (
             <div
               key={player.id}
-              className="flex items-center gap-2 bg-gray-700 px-4 py-2 rounded-lg"
+              className={`flex items-center gap-2 bg-gray-700 px-4 py-2 rounded-lg ${
+                player.isInactive ? 'border border-yellow-600' : ''
+              }`}
             >
               <div
                 className={`w-3 h-3 rounded-full ${
@@ -361,16 +467,35 @@ const CacophonyGame = () => {
                 <Trophy className="w-4 h-4 text-yellow-500" />
                 <span className="font-bold">{player.score}</span>
               </div>
+              {player.isInactive && (
+                <span className="text-[10px] uppercase tracking-wide text-yellow-300 bg-yellow-900/60 px-2 py-0.5 rounded">
+                  Inactive
+                </span>
+              )}
+              {isHost && !player.isYou && (
+                <button
+                  onClick={() => kickPlayer(player.id)}
+                  className="ml-2 text-xs text-red-300 hover:text-red-100 flex items-center gap-1"
+                >
+                  <UserX className="w-3 h-3" />
+                  Kick
+                </button>
+              )}
             </div>
           ))}
         </div>
         {gameState.error && (
           <div className="mt-3 text-sm text-red-400">{gameState.error}</div>
         )}
+        {gameState.isPaused && (
+          <div className="mt-3 text-sm bg-yellow-900/50 border border-yellow-700 text-yellow-200 px-4 py-3 rounded-lg">
+            Game is paused by host. Actions are disabled until resume.
+          </div>
+        )}
       </div>
 
       {/* Main Game Area */}
-      <div className="max-w-6xl mx-auto">
+      <div className={`${containerWidth} mx-auto`}>
         {(gameState.gamePhase === 'loading' || gameState.loading) && renderLoading()}
         {gameState.gamePhase === 'selecting' && renderSelecting()}
         {gameState.gamePhase === 'generating' && renderGenerating()}

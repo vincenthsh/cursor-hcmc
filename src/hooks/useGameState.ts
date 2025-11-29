@@ -4,6 +4,7 @@ import { DEFAULT_GAME_CONFIG, GAME_CONSTANTS } from '@/constants'
 import {
   awardPointToPlayer,
   computeFilledLyric,
+  deletePlayer,
   createRound,
   dealCardsToArtists,
   deriveProducerForRound,
@@ -18,22 +19,30 @@ import {
   submitLyricCard,
   updateRoundStatus,
   updateSubmissionWithSuno,
+  pauseGame as pauseRoom,
+  resumeGame as resumeRoom,
+  updatePlayerActivity,
+  updateListeningState,
 } from '@/utils/api'
 import { computeFinalLyric, formatTime, shouldAutoSubmit, shouldMoveToGeneration } from '@/utils/gameLogic'
 import { pollSunoTask, requestSunoSong } from '@/utils/suno'
 
 const initialState: GameState = {
   gamePhase: 'loading',
+  roomId: undefined,
+  hostPlayerId: undefined,
   players: [],
   currentRound: 1,
   roundId: undefined,
   vibeCard: '',
+  isPaused: false,
   yourHand: [],
   selectedCard: null,
   filledBlanks: {},
   submissions: [],
   currentSongIndex: 0,
   isPlaying: false,
+  listeningCueAt: null,
   generationProgress: 0,
   timer: DEFAULT_GAME_CONFIG.timerDuration,
   winner: null,
@@ -41,44 +50,51 @@ const initialState: GameState = {
   error: undefined,
 }
 
+const INACTIVITY_THRESHOLD_MS = 3 * 60 * 1000
+const POLL_INTERVAL_ACTIVE = 2500
+const POLL_INTERVAL_PAUSED = 5000
+
 export const useGameState = () => {
   const [gameState, setGameState] = useState<GameState>(initialState)
 
   const roomCode = import.meta.env.VITE_ROOM_CODE || 'AB1234'
   const currentPlayerId = import.meta.env.VITE_PLAYER_ID || ''
 
-  const mapSubmissions = useCallback(
-    (rows: (Awaited<ReturnType<typeof getSubmissionsForRound>>)) =>
-      rows.map<SongSubmission>((row) => ({
-        id: row.id,
-        playerId: row.player_id,
-        playerName: row.player?.username || 'Player',
-        lyric: computeFilledLyric(row),
-        handCardId: row.hand_card_id,
-        songUrl: row.song_url,
-        songStatus: row.song_status || undefined,
-        producerRating: row.producer_rating,
-        isWinner: row.is_winner,
-      })),
-    []
-  )
+  const mapSubmissions = useCallback((rows: (Awaited<ReturnType<typeof getSubmissionsForRound>>)) =>
+    rows.map<SongSubmission>((row) => ({
+      id: row.id,
+      playerId: row.player_id,
+      playerName: row.player?.username || 'Player',
+      lyric: computeFilledLyric(row),
+      handCardId: row.hand_card_id,
+      songUrl: row.song_url,
+      songStatus: row.song_status || undefined,
+      producerRating: row.producer_rating,
+      isWinner: row.is_winner,
+    })),
+  [])
 
-  const mapPlayers = useCallback(
-    (
-      players: Awaited<ReturnType<typeof getPlayersForRoom>>,
-      roundProducerId: string,
-      submissions: SongSubmission[]
-    ): Player[] =>
-      players.map((p) => ({
+  const mapPlayers = useCallback((
+    players: Awaited<ReturnType<typeof getPlayersForRoom>>,
+    roundProducerId: string,
+    submissions: SongSubmission[]
+  ): Player[] =>
+    players.map((p) => {
+      const lastActive = p.last_active_at ? new Date(p.last_active_at).getTime() : 0
+      const inactive = lastActive > 0 ? Date.now() - lastActive > INACTIVITY_THRESHOLD_MS : false
+      return {
         id: p.id,
         name: p.username,
         score: p.score ?? 0,
         isProducer: p.id === roundProducerId,
         submitted: submissions.some((s) => s.playerId === p.id),
         isYou: p.id === currentPlayerId,
-      })),
-    [currentPlayerId]
-  )
+        joinOrder: p.join_order,
+        lastActiveAt: p.last_active_at ?? undefined,
+        isInactive: inactive,
+      }
+    }),
+  [currentPlayerId])
 
   const derivePhase = useCallback(
     (roundStatus: string, submissions: SongSubmission[]): GameState['gamePhase'] => {
@@ -94,8 +110,8 @@ export const useGameState = () => {
     []
   )
 
-  const loadRoundState = useCallback(async () => {
-    setGameState((prev) => ({ ...prev, loading: true, error: undefined }))
+  const loadRoundState = useCallback(async (options?: { silent?: boolean }) => {
+    setGameState((prev) => ({ ...prev, loading: options?.silent ? prev.loading : true, error: undefined }))
     try {
       const room = await getRoomByCode(roomCode)
       const players = await getPlayersForRoom(room.id)
@@ -121,20 +137,27 @@ export const useGameState = () => {
       const submissions = mapSubmissions(submissionRows)
       const clientPlayers = mapPlayers(players, round.producer_id, submissions)
       const phase = derivePhase(round.status, submissions)
+      const hostId = players[0]?.id
 
       setGameState((prev) => ({
         ...prev,
+        roomId: room.id,
+        hostPlayerId: hostId,
         gamePhase: phase,
+        isPaused: room.is_paused,
         players: clientPlayers,
         currentRound: round.round_number,
         roundId: round.id,
         vibeCard: round.vibe_card_text,
         yourHand: hand,
         submissions,
+        currentSongIndex: round.listening_song_index ?? 0,
+        isPlaying: round.listening_is_playing ?? false,
+        listeningCueAt: round.listening_cue_at,
         winner: round.winner_id,
         generationProgress: phase === 'generating' ? prev.generationProgress : 100,
         loading: false,
-        timer: DEFAULT_GAME_CONFIG.timerDuration,
+        timer: room.is_paused ? prev.timer : DEFAULT_GAME_CONFIG.timerDuration,
       }))
     } catch (err) {
       setGameState((prev) => ({
@@ -149,6 +172,14 @@ export const useGameState = () => {
     loadRoundState()
   }, [loadRoundState])
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadRoundState({ silent: true })
+    }, gameState.isPaused ? POLL_INTERVAL_PAUSED : POLL_INTERVAL_ACTIVE)
+
+    return () => clearInterval(interval)
+  }, [gameState.isPaused, gameState.gamePhase, loadRoundState])
+
   const yourPlayer = gameState.players.find((p) => p.isYou)
   const producer = gameState.players.find((p) => p.isProducer)
   const artists = gameState.players.filter((p) => !p.isProducer)
@@ -158,6 +189,7 @@ export const useGameState = () => {
 
   // Timer countdown for UX (does not gate server state)
   useEffect(() => {
+    if (gameState.isPaused) return undefined
     if (gameState.gamePhase === 'selecting' && gameState.timer > 0) {
       const interval = setInterval(() => {
         setGameState((prev) => {
@@ -172,7 +204,8 @@ export const useGameState = () => {
       }, 1000)
       return () => clearInterval(interval)
     }
-  }, [gameState.gamePhase, gameState.timer, submittedCount, totalArtists])
+    return undefined
+  }, [gameState.gamePhase, gameState.timer, submittedCount, totalArtists, gameState.isPaused])
 
   const selectCard = useCallback((card: PlayerHand) => {
     if (!yourPlayer?.isProducer && !yourPlayer?.submitted) {
@@ -192,6 +225,7 @@ export const useGameState = () => {
   }, [])
 
   const submitCard = useCallback(async () => {
+    if (gameState.isPaused) return
     if (!gameState.selectedCard || yourPlayer?.submitted || !gameState.roundId || !currentPlayerId) return
 
     const filledBlanks = gameState.filledBlanks
@@ -203,6 +237,7 @@ export const useGameState = () => {
     })
 
     await markCardPlayed(gameState.selectedCard.id)
+    await updatePlayerActivity(currentPlayerId)
 
     const finalLyric = computeFinalLyric(
       gameState.selectedCard.template || gameState.selectedCard.lyric_card_text,
@@ -247,35 +282,68 @@ export const useGameState = () => {
   }, [currentPlayerId, gameState.selectedCard, gameState.roundId, gameState.vibeCard, gameState.filledBlanks, yourPlayer?.submitted, loadRoundState])
 
   const togglePlaySong = useCallback(() => {
-    setGameState((prev) => ({ ...prev, isPlaying: !prev.isPlaying }))
-  }, [])
+    if (!gameState.roundId) return
+
+    if (yourPlayer?.id === gameState.hostPlayerId) {
+      const nextPlaying = !gameState.isPlaying
+      setGameState((prev) => ({ ...prev, isPlaying: nextPlaying }))
+      updateListeningState(gameState.roundId, {
+        listening_is_playing: nextPlaying,
+        listening_cue_at: new Date().toISOString(),
+      }).then(() => {
+        if (yourPlayer?.id) return updatePlayerActivity(yourPlayer.id)
+        return undefined
+      }).catch((err) => {
+        setGameState((prev) => ({ ...prev, error: err instanceof Error ? err.message : 'Failed to update playback' }))
+      })
+    }
+  }, [gameState.isPlaying, gameState.roundId, yourPlayer?.id, gameState.hostPlayerId])
 
   const nextSong = useCallback(() => {
+    if (!gameState.roundId) return
     if (gameState.currentSongIndex < gameState.submissions.length - 1) {
+      const nextIndex = gameState.currentSongIndex + 1
       setGameState((prev) => ({
         ...prev,
-        currentSongIndex: prev.currentSongIndex + 1,
+        currentSongIndex: nextIndex,
         isPlaying: false,
       }))
+
+      if (yourPlayer?.id === gameState.hostPlayerId) {
+        updateListeningState(gameState.roundId, {
+          listening_song_index: nextIndex,
+          listening_is_playing: false,
+        }).then(() => {
+          if (yourPlayer?.id) return updatePlayerActivity(yourPlayer.id)
+          return undefined
+        }).catch((err) => {
+          setGameState((prev) => ({ ...prev, error: err instanceof Error ? err.message : 'Failed to change song' }))
+        })
+      }
     }
-  }, [gameState.currentSongIndex, gameState.submissions.length])
+  }, [gameState.currentSongIndex, gameState.roundId, gameState.submissions.length, yourPlayer?.id, gameState.hostPlayerId])
 
   const selectWinner = useCallback(
     async (playerId: string) => {
+      if (gameState.isPaused) return
       if (!yourPlayer?.isProducer || !gameState.roundId) return
       const winningSubmission = gameState.submissions.find((s) => s.playerId === playerId)
       if (!winningSubmission || !winningSubmission.id) return
 
       await setWinner(gameState.roundId, winningSubmission.id, playerId)
       await awardPointToPlayer(playerId)
+      if (yourPlayer?.id) {
+        await updatePlayerActivity(yourPlayer.id)
+      }
 
       setGameState((prev) => ({ ...prev, winner: playerId, gamePhase: 'results' }))
       await loadRoundState()
     },
-    [gameState.roundId, gameState.submissions, loadRoundState, yourPlayer?.isProducer]
+    [gameState.isPaused, gameState.roundId, gameState.submissions, loadRoundState, yourPlayer?.id, yourPlayer?.isProducer]
   )
 
   const nextRound = useCallback(async () => {
+    if (gameState.isPaused) return
     try {
       const room = await getRoomByCode(roomCode)
       const players = await getPlayersForRoom(room.id)
@@ -290,6 +358,9 @@ export const useGameState = () => {
       const artistIds = players.filter((p) => p.id !== producer.id).map((p) => p.id)
       await dealCardsToArtists(round.id, artistIds, DEFAULT_GAME_CONFIG.handSize)
       await updateRoundStatus(round.id, 'selecting')
+      if (currentPlayerId) {
+        await updatePlayerActivity(currentPlayerId)
+      }
       await loadRoundState()
     } catch (err) {
       setGameState((prev) => ({
@@ -297,16 +368,74 @@ export const useGameState = () => {
         error: err instanceof Error ? err.message : 'Failed to start next round',
       }))
     }
-  }, [gameState.currentRound, loadRoundState, roomCode])
+  }, [currentPlayerId, gameState.currentRound, gameState.isPaused, loadRoundState, roomCode])
 
   useEffect(() => {
+    if (gameState.isPaused) return undefined
     if (shouldMoveToGeneration(gameState.gamePhase, submittedCount, totalArtists)) {
       const timeout = setTimeout(() => {
         setGameState((prev) => ({ ...prev, gamePhase: 'generating', generationProgress: 60 }))
       }, GAME_CONSTANTS.PHASE_TRANSITION_DELAY)
       return () => clearTimeout(timeout)
     }
-  }, [submittedCount, gameState.gamePhase, totalArtists])
+    return undefined
+  }, [submittedCount, gameState.gamePhase, totalArtists, gameState.isPaused])
+
+  useEffect(() => {
+    if (gameState.gamePhase !== 'generating' || gameState.isPaused) return undefined
+
+    const interval = setInterval(() => {
+      setGameState((prev) => ({
+        ...prev,
+        generationProgress: Math.min(98, prev.generationProgress + 4),
+      }))
+    }, 1200)
+
+    return () => clearInterval(interval)
+  }, [gameState.gamePhase, gameState.isPaused])
+
+  const pauseGame = useCallback(async () => {
+    if (!gameState.roomId || yourPlayer?.id !== gameState.hostPlayerId) return
+    try {
+      await pauseRoom(gameState.roomId)
+      setGameState((prev) => ({ ...prev, isPaused: true }))
+    } catch (err) {
+      setGameState((prev) => ({
+        ...prev,
+        error: err instanceof Error ? err.message : 'Failed to pause game',
+      }))
+    }
+  }, [gameState.roomId, gameState.hostPlayerId, yourPlayer?.id])
+
+  const resumeGame = useCallback(async () => {
+    if (!gameState.roomId || yourPlayer?.id !== gameState.hostPlayerId) return
+    try {
+      await resumeRoom(gameState.roomId)
+      setGameState((prev) => ({ ...prev, isPaused: false }))
+    } catch (err) {
+      setGameState((prev) => ({
+        ...prev,
+        error: err instanceof Error ? err.message : 'Failed to resume game',
+      }))
+    }
+  }, [gameState.roomId, gameState.hostPlayerId, yourPlayer?.id])
+
+  const kickPlayer = useCallback(
+    async (playerId: string) => {
+      if (!playerId || playerId === yourPlayer?.id) return
+      if (yourPlayer?.id !== gameState.hostPlayerId) return
+      try {
+        await deletePlayer(playerId)
+        await loadRoundState()
+      } catch (err) {
+        setGameState((prev) => ({
+          ...prev,
+          error: err instanceof Error ? err.message : 'Failed to remove player',
+        }))
+      }
+    },
+    [gameState.hostPlayerId, loadRoundState, yourPlayer?.id]
+  )
 
   return {
     gameState,
@@ -316,6 +445,9 @@ export const useGameState = () => {
     submittedCount,
     totalArtists,
     currentSong,
+    pauseGame,
+    resumeGame,
+    kickPlayer,
     startNewRound: loadRoundState,
     selectCard,
     updateBlankValue,

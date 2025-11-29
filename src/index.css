@@ -33,3 +33,9 @@
     @apply game-button bg-gray-800 hover:bg-gray-700 text-white border border-gray-600;
   }
 }
+
+@layer utilities {
+  .animate-spin-slow {
+    animation: spin 8s linear infinite;
+  }
+}

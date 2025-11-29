@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS game_rooms (
     status VARCHAR(20) DEFAULT 'waiting', -- waiting, in_progress, completed
     current_round INTEGER DEFAULT 0,
     target_rounds INTEGER DEFAULT 5,
+    is_paused BOOLEAN DEFAULT FALSE,
+    paused_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -46,6 +48,7 @@ CREATE TABLE IF NOT EXISTS players (
     username VARCHAR(50) NOT NULL,
     score INTEGER DEFAULT 0,
     join_order INTEGER NOT NULL, -- 1, 2, 3, 4... (for rotating producer)
+    last_active_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     UNIQUE(game_room_id, username),
@@ -66,6 +69,9 @@ CREATE TABLE IF NOT EXISTS game_rounds (
     vibe_card_text TEXT NOT NULL, -- "A Country ballad about ______" (from JSON)
     status VARCHAR(20) DEFAULT 'selecting', -- selecting, listening, completed
     winner_id UUID REFERENCES players(id),
+    listening_song_index INTEGER DEFAULT 0,
+    listening_is_playing BOOLEAN DEFAULT FALSE,
+    listening_cue_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     UNIQUE(game_room_id, round_number)
@@ -83,6 +89,50 @@ BEGIN
     ) THEN
         ALTER TABLE game_rounds ADD COLUMN vibe_card_id UUID REFERENCES vibe_cards(id);
         -- Optional: add NOT NULL once existing rows are populated with valid ids.
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'game_rounds' AND column_name = 'listening_song_index'
+    ) THEN
+        ALTER TABLE game_rounds ADD COLUMN listening_song_index INTEGER DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'game_rounds' AND column_name = 'listening_is_playing'
+    ) THEN
+        ALTER TABLE game_rounds ADD COLUMN listening_is_playing BOOLEAN DEFAULT FALSE;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'game_rounds' AND column_name = 'listening_cue_at'
+    ) THEN
+        ALTER TABLE game_rounds ADD COLUMN listening_cue_at TIMESTAMP WITH TIME ZONE;
+    END IF;
+END$$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'game_rooms' AND column_name = 'is_paused'
+    ) THEN
+        ALTER TABLE game_rooms ADD COLUMN is_paused BOOLEAN DEFAULT FALSE;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'game_rooms' AND column_name = 'paused_at'
+    ) THEN
+        ALTER TABLE game_rooms ADD COLUMN paused_at TIMESTAMP WITH TIME ZONE;
+    END IF;
+END$$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'players' AND column_name = 'last_active_at'
+    ) THEN
+        ALTER TABLE players ADD COLUMN last_active_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
     END IF;
 END$$;
 
@@ -181,6 +231,9 @@ COMMENT ON TABLE lyric_cards IS 'Static lyric card catalog from gameData.ts';
 COMMENT ON COLUMN players.join_order IS 'Determines producer rotation: round 1 = join_order 1, round 2 = join_order 2, etc';
 COMMENT ON COLUMN game_rounds.producer_id IS 'The player who is producer for this round';
 COMMENT ON COLUMN game_rounds.vibe_card_id IS 'Reference to the vibe_cards table for this round';
+COMMENT ON COLUMN game_rounds.listening_song_index IS 'Shared listening state: which submission index is selected';
+COMMENT ON COLUMN game_rounds.listening_is_playing IS 'Shared listening state: whether playback is active';
+COMMENT ON COLUMN game_rounds.listening_cue_at IS 'Timestamp used by clients to loosely sync playback start';
 COMMENT ON COLUMN player_hands.template IS 'Template string with placeholders like "My {0} left me for {1}"';
 COMMENT ON COLUMN player_hands.position IS 'Card position in hand (0-4)';
 COMMENT ON COLUMN player_hands.is_played IS 'TRUE when player submits this card';
@@ -188,3 +241,6 @@ COMMENT ON COLUMN submissions.hand_card_id IS 'Optional reference to the card fr
 COMMENT ON COLUMN submissions.filled_blanks IS 'JSONB: {"0": "answer1", "1": "answer2"}';
 COMMENT ON COLUMN submissions.suno_task_id IS 'Suno API task ID for polling';
 COMMENT ON COLUMN submissions.producer_rating IS 'Numeric rating from producer (0.0 to 5.0)';
+COMMENT ON COLUMN game_rooms.is_paused IS 'Host-controlled pause flag propagated via polling';
+COMMENT ON COLUMN game_rooms.paused_at IS 'Timestamp when the room was paused for UX messaging';
+COMMENT ON COLUMN players.last_active_at IS 'Updated on any player action to help host kick inactive players';
