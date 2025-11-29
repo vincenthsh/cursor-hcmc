@@ -10,7 +10,7 @@
 - [x] Playback generated song URL in listening phase
 - [x] Producer selects winner, mark `is_winner`, and increment score
 - [ ] Enforce submission timer server-side (auto-submit/auto-advance on expiry)
-- [ ] Auto-refresh/poll or Supabase realtime to update submissions and status bars
+- [x] Auto-refresh/poll or Supabase realtime to update submissions and status bars
 - [ ] Replace used lyric cards to maintain hand size after each round
 
 ## Multi-Round / Game Progression
@@ -25,9 +25,9 @@
 - [ ] Ensure unique join code generation and display current players in lobby
 
 ## Host Controls / Polish
-- [ ] Host pause/resume; kick inactive players
-- [ ] Better waiting/generation animations; synchronized audio playback across devices
-- [ ] Mobile controller vs shared display layout split
+- [x] Host pause/resume; kick inactive players (polling-based)
+- [x] Better waiting/generation animations; synchronized audio playback across devices (host-driven, polled)
+- [x] Mobile controller vs shared display layout split
 
 ## Data & Infra
 - [x] Supabase helper layer for rounds/hands/submissions + Suno wrapper
