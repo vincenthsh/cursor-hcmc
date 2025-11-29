@@ -1,0 +1,50 @@
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "taskId": "c820a00476af59d0b0cdc76cb6199d96",
+    "parentMusicId": "",
+    "param": "{\"callBackUrl\":\"https://api.example.com/callback\",\"customMode\":false,\"instrumental\":false,\"model\":\"V5\",\"prompt\":\"A heartbreaking Country ballad about A wet pair of socks. Short song, approx 30 seconds.\"}",
+    "response": {
+      "taskId": "c820a00476af59d0b0cdc76cb6199d96",
+      "sunoData": [
+        {
+          "id": "b75aa83d-5d42-41f3-aeb9-e88594244934",
+          "audioUrl": "https://musicfile.api.box/Yjc1YWE4M2QtNWQ0Mi00MWYzLWFlYjktZTg4NTk0MjQ0OTM0.mp3",
+          "sourceAudioUrl": "https://cdn1.suno.ai/b75aa83d-5d42-41f3-aeb9-e88594244934.mp3",
+          "streamAudioUrl": "https://musicfile.api.box/Yjc1YWE4M2QtNWQ0Mi00MWYzLWFlYjktZTg4NTk0MjQ0OTM0",
+          "sourceStreamAudioUrl": "https://cdn1.suno.ai/b75aa83d-5d42-41f3-aeb9-e88594244934.mp3",
+          "imageUrl": "https://musicfile.api.box/Yjc1YWE4M2QtNWQ0Mi00MWYzLWFlYjktZTg4NTk0MjQ0OTM0.jpeg",
+          "sourceImageUrl": "https://cdn2.suno.ai/image_b75aa83d-5d42-41f3-aeb9-e88594244934.jpeg",
+          "prompt": "[Verse]\nRain poured down, the sky turned gray,\nBoots gave out halfway through the day.\nEach step squished, cold seeped in,\nA soggy fight I couldn’t win.\n\n[Chorus]\nOh, these wet socks, they drag me down,\nHeavy as heartache in this old town.\nEach drip reminds me, I’ve lost control,\nSoaked to the skin, and soaked to the soul.\n\n[Outro]\nThey say dry feet can save a man,\nBut here I stand, a sinking sand.",
+          "modelName": "chirp-crow",
+          "title": "Soaked to the Soul",
+          "tags": "ballad, slow ballad, plaintive male vocals, acoustic with soft fingerpicking, country",
+          "createTime": 1764375552599,
+          "duration": 99.76
+        },
+        {
+          "id": "e92e38a4-512f-4155-b1da-54ae687f5a56",
+          "audioUrl": "https://musicfile.api.box/ZTkyZTM4YTQtNTEyZi00MTU1LWIxZGEtNTRhZTY4N2Y1YTU2.mp3",
+          "sourceAudioUrl": "https://cdn1.suno.ai/e92e38a4-512f-4155-b1da-54ae687f5a56.mp3",
+          "streamAudioUrl": "https://musicfile.api.box/ZTkyZTM4YTQtNTEyZi00MTU1LWIxZGEtNTRhZTY4N2Y1YTU2",
+          "sourceStreamAudioUrl": "https://cdn1.suno.ai/e92e38a4-512f-4155-b1da-54ae687f5a56.mp3",
+          "imageUrl": "https://musicfile.api.box/ZTkyZTM4YTQtNTEyZi00MTU1LWIxZGEtNTRhZTY4N2Y1YTU2.jpeg",
+          "sourceImageUrl": "https://cdn2.suno.ai/image_e92e38a4-512f-4155-b1da-54ae687f5a56.jpeg",
+          "prompt": "[Verse]\nRain poured down, the sky turned gray,\nBoots gave out halfway through the day.\nEach step squished, cold seeped in,\nA soggy fight I couldn’t win.\n\n[Chorus]\nOh, these wet socks, they drag me down,\nHeavy as heartache in this old town.\nEach drip reminds me, I’ve lost control,\nSoaked to the skin, and soaked to the soul.\n\n[Outro]\nThey say dry feet can save a man,\nBut here I stand, a sinking sand.",
+          "modelName": "chirp-crow",
+          "title": "Soaked to the Soul",
+          "tags": "ballad, slow ballad, plaintive male vocals, acoustic with soft fingerpicking, country",
+          "createTime": 1764375552599,
+          "duration": 84.88
+        }
+      ]
+    },
+    "status": "SUCCESS",
+    "type": "chirp-crow",
+    "operationType": "generate",
+    "errorCode": null,
+    "errorMessage": null,
+    "createTime": 1764375438000
+  }
+}
