@@ -17,8 +17,8 @@ const CacophonyGame = () => {
     submittedCount,
     totalArtists,
     currentSong,
-    startNewRound,
     selectCard,
+    updateBlankValue,
     submitCard,
     togglePlaySong,
     nextSong,
@@ -27,11 +27,15 @@ const CacophonyGame = () => {
     formatTime,
   } = useGameState()
 
-  const renderWaiting = () => (
+  const blanksFilled =
+    (gameState.selectedCard?.blank_count || 0) === 0 ||
+    Object.values(gameState.filledBlanks || {}).every((val) => val && val.trim().length > 0)
+
+  const renderLoading = () => (
     <div className="text-center py-20">
-      <Music className="w-24 h-24 mx-auto mb-6 text-purple-500 animate-pulse" />
-      <h2 className="text-3xl font-bold mb-4">Getting Ready...</h2>
-      <p className="text-gray-400">Tune your instruments</p>
+      <Music className="w-24 h-24 mx-auto mb-6 text-purple-500 animate-spin" />
+      <h2 className="text-3xl font-bold mb-4">Loading game...</h2>
+      <p className="text-gray-400">Fetching room, players, and round</p>
     </div>
   )
 
@@ -103,14 +107,33 @@ const CacophonyGame = () => {
                 }`}
               >
                 <div className="text-sm text-gray-400 mb-2">Lyric Card #{idx + 1}</div>
-                <div className="font-semibold">{card}</div>
+                <div className="font-semibold">{card.lyric_card_text}</div>
+                {card.blank_count > 0 && (
+                  <div className="text-xs text-gray-400 mt-2">{card.blank_count} blanks</div>
+                )}
               </button>
             ))}
           </div>
+          {gameState.selectedCard && gameState.selectedCard.blank_count > 0 && (
+            <div className="mb-4 bg-gray-800 rounded-xl p-4">
+              <h4 className="font-semibold mb-2">Fill in the blanks</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {Array.from({ length: gameState.selectedCard.blank_count }).map((_, idx) => (
+                  <input
+                    key={idx}
+                    className="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 focus:outline-none focus:border-cyan-400"
+                    placeholder={`Blank #${idx + 1}`}
+                    value={gameState.filledBlanks?.[idx.toString()] || ''}
+                    onChange={(e) => updateBlankValue(idx.toString(), e.target.value)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
           {!yourPlayer?.submitted && (
             <button
               onClick={submitCard}
-              disabled={!gameState.selectedCard}
+              disabled={!gameState.selectedCard || !blanksFilled}
               className="w-full py-4 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed hover:from-green-500 hover:to-emerald-500 transition-all shadow-lg"
             >
               Submit Card
@@ -183,6 +206,12 @@ const CacophonyGame = () => {
               </button>
             )}
           </div>
+
+          {currentSong?.songUrl && (
+            <div className="mt-6">
+              <audio className="w-full" controls src={currentSong.songUrl} />
+            </div>
+          )}
 
           {/* Simulated Waveform */}
           {gameState.isPlaying && (
@@ -335,11 +364,14 @@ const CacophonyGame = () => {
             </div>
           ))}
         </div>
+        {gameState.error && (
+          <div className="mt-3 text-sm text-red-400">{gameState.error}</div>
+        )}
       </div>
 
       {/* Main Game Area */}
       <div className="max-w-6xl mx-auto">
-        {gameState.gamePhase === 'waiting' && renderWaiting()}
+        {(gameState.gamePhase === 'loading' || gameState.loading) && renderLoading()}
         {gameState.gamePhase === 'selecting' && renderSelecting()}
         {gameState.gamePhase === 'generating' && renderGenerating()}
         {gameState.gamePhase === 'listening' && renderListening()}
