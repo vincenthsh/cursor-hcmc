@@ -273,8 +273,12 @@ export const useGameState = (
     try {
       if (sunoApiService) {
         // Use new SunoApiService
+        // Replace the blank placeholders in the vibe card with the actual lyric
+        const vibeWithLyric = gameState.vibeCard.replace(/_{2,}/g, finalLyric)
+        const productionNotes = 'Minimal intro, no outro. Simple lyrics, Short song, approx 30 seconds.'
+
         const taskId = await sunoApiService.generateMusic({
-          prompt: `Create a ${gameState.vibeCard.toLowerCase()} song with this lyric: "${finalLyric}". Make it catchy and memorable.`,
+          prompt: `Create a ${vibeWithLyric.toLowerCase()} ${productionNotes}`,
           style: gameState.vibeCard,
           title: `${gameState.vibeCard} - Player`,
           customMode: true,
