@@ -287,20 +287,33 @@ export const useGameState = (
           song_status: 'pending',
         })
 
-        // Single poll of getGenerationDetails then use fallback audio
+        // Poll for completion and get the actual audio URL
         try {
-          // Update progress to show generation started
-          setGameState((prev) => ({ ...prev, generationProgress: 50 }))
+          // Wait for completion with progress updates
+          const result = await sunoApiService.waitForCompletionWithProgress(
+            taskId,
+            (progress) => {
+              setGameState((prev) => ({ ...prev, generationProgress: progress }))
+            },
+            {
+              maxWaitTime: 5 * 60 * 1000, // 5 minutes
+              pollInterval: 3000, // 3 seconds
+            }
+          )
 
-          // Call getGenerationDetails once (regardless of result)
-          await sunoApiService.getGenerationDetails(taskId)
+          // Extract the audio URL from the Suno response
+          const track = result.data.response?.sunoData?.[0]
+          const audioUrl = track?.audioUrl || track?.streamAudioUrl
 
-          // Always use fallback audio regardless of the actual result
-          const fallbackAudioUrl = 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
+          if (!audioUrl) {
+            throw new Error('No audio URL returned from Suno')
+          }
+
+          console.log('✅ Suno generation completed, audio URL:', audioUrl)
 
           await updateSubmissionWithSuno(submission.id, {
             song_status: 'completed',
-            song_url: fallbackAudioUrl,
+            song_url: audioUrl,
             suno_task_id: taskId,
           })
 
@@ -308,14 +321,15 @@ export const useGameState = (
           setGameState((prev) => ({ ...prev, generationProgress: 100 }))
 
         } catch (err) {
-          // Even if getGenerationDetails fails, we still use fallback audio
-          console.warn('getGenerationDetails failed, using fallback audio:', err)
+          console.error('❌ Suno generation failed:', err)
 
+          // Use fallback audio only on error
           const fallbackAudioUrl = 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
 
           await updateSubmissionWithSuno(submission.id, {
-            song_status: 'completed',
+            song_status: 'failed',
             song_url: fallbackAudioUrl,
+            song_error: err instanceof Error ? err.message : 'Generation failed',
             suno_task_id: taskId,
           })
 
