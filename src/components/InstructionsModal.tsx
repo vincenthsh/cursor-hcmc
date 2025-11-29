@@ -337,15 +337,18 @@ export default function InstructionsModal({ isOpen, onClose }: InstructionsModal
           </div>
           <div className="flex items-center gap-2 mt-4">
             {STEPS.map((step, index) => (
-              <div
+              <button
                 key={`step-${step.title}-${index}`}
-                className={`h-2 rounded-full flex-1 transition-all ${
+                type="button"
+                onClick={() => setCurrentStep(index)}
+                className={`h-2 rounded-full flex-1 transition-all cursor-pointer hover:scale-y-150 ${
                   index === currentStep
                     ? 'bg-gradient-to-r from-purple-500 to-pink-500'
                     : index < currentStep
-                      ? 'bg-purple-600/50'
-                      : 'bg-gray-700'
+                      ? 'bg-purple-600/50 hover:bg-purple-500/70'
+                      : 'bg-gray-700 hover:bg-gray-600'
                 }`}
+                aria-label={`Go to step ${index + 1}: ${step.title}`}
               />
             ))}
           </div>
