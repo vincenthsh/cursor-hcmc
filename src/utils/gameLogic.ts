@@ -1,5 +1,4 @@
-import { Player, SongSubmission, GamePhase } from '@/types'
-import { LYRIC_CARDS, VIBE_CARDS, GAME_CONSTANTS } from '@/constants'
+import { GamePhase } from '@/types'
 
 export const formatTime = (seconds: number): string => {
   const minutes = Math.floor(seconds / 60)

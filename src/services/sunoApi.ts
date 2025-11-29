@@ -5,6 +5,11 @@ import {
   SunoConfig
 } from '@/types/suno'
 
+const DEBUG_LOGS = import.meta.env.VITE_DEBUG_LOGS === 'true'
+const log = (...args: unknown[]) => {
+  if (DEBUG_LOGS) console.debug('[sunoApi]', ...args)
+}
+
 class SunoApiService {
   private config: SunoConfig
   private readonly DEFAULT_BASE_URL = 'https://api.sunoapi.org'
@@ -23,9 +28,9 @@ class SunoApiService {
   ): Promise<T> {
     const url = `${this.config.baseUrl}${endpoint}`
 
-    console.log(`🎵 Suno API Request: ${options.method || 'GET'} ${url}`)
+    log(`🎵 Suno API Request: ${options.method || 'GET'} ${url}`)
     if (options.body) {
-      console.log('📝 Request body:', JSON.parse(options.body as string))
+      log('📝 Request body:', JSON.parse(options.body as string))
     }
 
     const response = await fetch(url, {
@@ -37,7 +42,7 @@ class SunoApiService {
       ...options,
     })
 
-    console.log(`📡 Response status: ${response.status} ${response.statusText}`)
+    log(`📡 Response status: ${response.status} ${response.statusText}`)
 
     if (!response.ok) {
       let errorData: any
@@ -63,12 +68,12 @@ class SunoApiService {
         errorType = 'network'
       }
 
-      console.error('❌ Suno API Error:', { ...errorData, type: errorType })
+      log('❌ Suno API Error:', { ...errorData, type: errorType })
       throw new SunoApiError(errorData.msg || errorData.message || 'API Error', errorData.code || response.status, errorData.details, errorType)
     }
 
     const data = await response.json()
-    console.log('✅ Suno API Response:', data)
+    log('✅ Suno API Response:', data)
     return data
   }
 
@@ -100,7 +105,7 @@ class SunoApiService {
    * Get generation task details and results
    */
   async getGenerationDetails(taskId: string): Promise<SunoRecordInfoResponse> {
-    console.log(`🔍 Checking details for task: ${taskId}`)
+    log(`🔍 Checking details for task: ${taskId}`)
     const response: SunoRecordInfoResponse = await this.makeRequest(
       `/api/v1/generate/record-info?taskId=${taskId}`
     )
@@ -109,7 +114,7 @@ class SunoApiService {
       throw new SunoApiError(response.msg, response.code)
     }
 
-    console.log(`📋 Task ${taskId} details:`, {
+    log(`📋 Task ${taskId} details:`, {
       status: response.data.status,
       hasTracks: response.data.response?.sunoData?.length > 0,
       errorMessage: response.data.errorMessage
@@ -132,7 +137,7 @@ class SunoApiService {
   ): Promise<SunoRecordInfoResponse> {
     const { maxWaitTime = 5 * 60 * 1000, pollInterval = 3000 } = options
 
-    console.log(`⏳ Starting progress polling for taskId: ${taskId}`)
+    log(`⏳ Starting progress polling for taskId: ${taskId}`)
 
     const startTime = Date.now()
     let pollCount = 0
@@ -143,7 +148,7 @@ class SunoApiService {
       pollCount++
 
       try {
-        console.log(`🔍 Progress poll ${pollCount} for taskId: ${taskId}`)
+        log(`🔍 Progress poll ${pollCount} for taskId: ${taskId}`)
 
         const response = await fetch(`${this.config.baseUrl}/api/v1/generate/record-info?taskId=${taskId}`, {
           method: 'GET',
@@ -160,7 +165,7 @@ class SunoApiService {
         const data = await response.json()
         const currentStatus = data.data.status
 
-        console.log(`📊 Poll ${pollCount} status: ${currentStatus}`)
+        log(`📊 Poll ${pollCount} status: ${currentStatus}`)
 
         // Calculate progress based on status, ensuring monotonic increase
         let progress = lastProgress // Start with last progress to avoid going backwards
@@ -187,7 +192,7 @@ class SunoApiService {
           progress = Math.max(lastProgress, 0)
         } else if (currentStatus === 'FAILED') {
           // Reset progress to 0 and continue polling for retry
-          console.log(`❌ Generation failed for taskId: ${taskId}, resetting progress to 0`)
+          log(`❌ Generation failed for taskId: ${taskId}, resetting progress to 0`)
           progress = 0
           lastProgress = 0
         } else {
@@ -199,7 +204,7 @@ class SunoApiService {
         status = currentStatus
         lastProgress = progress
 
-        console.log(`📈 Progress updated: ${progress}% (status: ${currentStatus})`)
+        log(`📈 Progress updated: ${progress}% (status: ${currentStatus})`)
 
         // Call progress callback if provided
         if (progressCallback) {
@@ -207,7 +212,7 @@ class SunoApiService {
         }
 
         if (data.data.status === 'SUCCESS') {
-          console.log(`✅ Generation completed for taskId: ${taskId}`)
+          log(`✅ Generation completed for taskId: ${taskId}`)
           return data
         }
 
@@ -215,7 +220,7 @@ class SunoApiService {
         await new Promise(resolve => setTimeout(resolve, pollInterval))
 
       } catch (error) {
-        console.error(`❌ Error in progress poll ${pollCount}:`, error)
+        log(`❌ Error in progress poll ${pollCount}:`, error)
         if (error instanceof SunoApiError && error.code === 404) {
           // Task not found, continue polling
           await new Promise(resolve => setTimeout(resolve, pollInterval))

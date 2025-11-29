@@ -59,7 +59,6 @@ export interface PlayerHand {
 }
 
 export interface GameConfig {
-  players: Player[]
   timerDuration: number
   handSize: number
 }

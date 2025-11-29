@@ -29,6 +29,11 @@ import { getSunoConfig, isSunoConfigured } from '@/config/suno'
 import SunoApiService, { SunoApiError } from '@/services/sunoApi'
 import { POLLING, DEV, SUNO, FALLBACK } from '@/config/gameConfig'
 
+const DEBUG_LOGS = import.meta.env.VITE_DEBUG_LOGS === 'true'
+const log = (...args: unknown[]) => {
+  if (DEBUG_LOGS) console.debug('[useGameState]', ...args)
+}
+
 const initialState: GameState = {
   gamePhase: 'waiting',
   roomId: undefined,
@@ -318,7 +323,7 @@ export const useGameState = (
             throw new Error('No audio URL returned from Suno')
           }
 
-          console.log('✅ Suno generation completed, audio URL:', audioUrl)
+          log('✅ Suno generation completed, audio URL:', audioUrl)
 
           await updateSubmissionWithSuno(submission.id, {
             song_status: 'completed',
@@ -330,7 +335,7 @@ export const useGameState = (
           setGameState((prev) => ({ ...prev, generationProgress: 100 }))
 
         } catch (err) {
-          console.error('❌ Suno generation failed:', err)
+          log('❌ Suno generation failed:', err)
 
           // Use fallback audio only on error
           await updateSubmissionWithSuno(submission.id, {
@@ -344,7 +349,7 @@ export const useGameState = (
         }
       } else {
         // Fallback to mock mode when Suno is not configured
-        console.warn('Suno API not configured, using mock generation')
+        log('⚠️ Suno API not configured, using mock generation')
         await updateSubmissionWithSuno(submission.id, {
           song_status: 'completed',
           song_url: FALLBACK.mockAudioUrl,
@@ -352,7 +357,7 @@ export const useGameState = (
         })
       }
     } catch (err) {
-      console.error('Song generation error:', err)
+      log('❌ Song generation error:', err)
       await updateSubmissionWithSuno(submission.id, {
         song_status: 'failed',
         song_error: err instanceof SunoApiError

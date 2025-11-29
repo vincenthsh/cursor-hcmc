@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Play, Pause, Volume2, VolumeX } from 'lucide-react'
 
+const DEBUG_LOGS = import.meta.env.VITE_DEBUG_LOGS === 'true'
+const log = (...args: unknown[]) => {
+  if (DEBUG_LOGS) console.debug('[AudioPlayer]', ...args)
+}
+
 interface AudioPlayerProps {
   audioUrl?: string | null
   isPlaying: boolean
@@ -31,7 +36,7 @@ export const AudioPlayer = ({
 
     if (isPlaying) {
       audio.play().catch((err) => {
-        console.error('Failed to play audio:', err)
+        log('❌ Failed to play audio:', err)
         setError('Failed to play audio')
         onPlayStateChange(false)
       })
