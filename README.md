@@ -26,6 +26,7 @@ A multiplayer music battle game built with React, TypeScript, and Tailwind CSS. 
 - **Vite** - Build tool
 - **Tailwind CSS** - Styling
 - **Lucide React** - Icons
+- **Supabase (Postgres)** - Realtime DB + row-level security for multiplayer state
 
 ## Getting Started
 
@@ -53,6 +54,22 @@ npm run dev
 ```
 
 4. Open your browser and navigate to `http://localhost:3000`
+
+### Database Setup (Supabase)
+
+1. Create a new Supabase project and grab the SQL editor.
+2. Run the schema in `init.sql` (UUID extension + 5 tables: `game_rooms`, `players`, `game_rounds`, `player_hands`, `submissions` with permissive RLS policies for now).
+3. (Optional) Verify schema:
+   - `select * from game_rooms limit 1;`
+   - `select * from player_hands limit 1;`
+4. Store your Supabase URL/anon key in your frontend env file for client queries (e.g., `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`).
+
+Schema highlights:
+- `game_rooms`: join code, status, round counters.
+- `players`: username, score, join_order (producer rotation).
+- `game_rounds`: vibe card text, producer_id, winner_id, status.
+- `player_hands`: 5 dealt cards per artist per round, `is_played` flag for validation.
+- `submissions`: filled blanks, Suno task state, song URL, producer rating.
 
 ### Build for Production
 
@@ -131,7 +148,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Future Enhancements
 
-- [ ] Real multiplayer support with WebSockets
+- [ ] Real multiplayer support with WebSockets (integrate with Supabase realtime channels)
 - [ ] Actual AI song generation integration
 - [ ] Sound effects and background music
 - [ ] Custom game rooms and lobbies

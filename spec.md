@@ -5,6 +5,13 @@
 **Status**: Draft
 **Input**: User description: "Develop Cacophony, an online, jackbox-style multiplayer party game where players combine silly lyric prompts with genre cards and the game generates short AI-performed songs that everyone listens to and votes on"
 
+## Database (Supabase)
+
+- **Schema**: `game_rooms` (join code, status, rounds), `players` (username, score, join_order), `game_rounds` (round_number, producer_id, vibe_card_text, winner_id, status), `player_hands` (5 dealt lyric cards per artist, template, blank_count, is_played flag), `submissions` (filled blanks, Suno task state, song URL, producer rating, winner flag).
+- **Purpose**: Enforces card ownership server-side, validates submissions against dealt hands, supports producer rotation via `join_order`, and stores Suno task status/URLs for synchronized playback.
+- **RLS**: Tables have permissive policies for now (all true) to unblock prototyping; tighten when auth arrives.
+- **Flows covered**: lobby creation and join (FR-001/002/003/024/025), producer rotation (FR-004), dealt hands and submission validation (FR-006/009/027), vibe display and round tracking (FR-007/008/020/021/022), Suno generation tracking and playback (FR-013/014/015/016/019), scoring and winner reveal (FR-017/018/023), submission status counting (FR-010/011/012).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Create and Join Game Lobby (Priority: P1)
