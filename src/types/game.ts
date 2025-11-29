@@ -5,6 +5,9 @@ export interface Player {
   isProducer: boolean
   submitted: boolean
   isYou: boolean
+  joinOrder?: number
+  lastActiveAt?: string
+  isInactive?: boolean
 }
 
 export interface PlayerHand {
@@ -34,16 +37,20 @@ export type GamePhase = 'loading' | 'selecting' | 'generating' | 'listening' | '
 
 export interface GameState {
   gamePhase: GamePhase
+  roomId?: string
   players: Player[]
   currentRound: number
   roundId?: string
   vibeCard: string
+  hostPlayerId?: string
+  isPaused: boolean
   yourHand: PlayerHand[]
   selectedCard: PlayerHand | null
   filledBlanks: Record<string, string>
   submissions: SongSubmission[]
   currentSongIndex: number
   isPlaying: boolean
+  listeningCueAt?: string | null
   generationProgress: number
   timer: number
   winner: string | null
