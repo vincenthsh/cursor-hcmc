@@ -76,3 +76,18 @@ export const shouldMoveToGeneration = (
 ): boolean => {
   return gamePhase === 'selecting' && submittedCount === totalArtists
 }
+
+export const computeFinalLyric = (
+  template: string,
+  blanks: Record<string, string>
+): string => {
+  return Object.entries(blanks).reduce((acc, [key, value]) => {
+    return acc.replace(`{${key}}`, value || '___')
+  }, template)
+}
+
+export const countPlaceholders = (template?: string | null): number => {
+  if (!template) return 0
+  const matches = template.match(/\{\d+\}/g)
+  return matches ? matches.length : 0
+}
