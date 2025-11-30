@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Loader, ChevronDown, ChevronUp, Music, Play, Pause, Trophy, Users, Calendar } from 'lucide-react'
+import { Loader, ChevronDown, ChevronUp, Music, Play, Pause, Trophy, Users, Calendar, Download } from 'lucide-react'
 import { getGameHistory, getRoundsWithSubmissions, getPlayersForRoom, GameHistoryRoom, RoundWithSubmissions, PlayerRow } from '@/utils/api'
 import { computeFinalLyric } from '@/utils/gameLogic'
 
@@ -109,6 +109,40 @@ export default function GameHistoryTab() {
       audioElement.pause()
       setPlayingAudio(null)
       setAudioElement(null)
+    }
+  }
+
+  const downloadSong = async (audioUrl: string, vibeCard: string, lyric: string) => {
+    try {
+      // Fetch the audio file
+      const response = await fetch(audioUrl)
+      const blob = await response.blob()
+
+      // Create a safe filename: "Cacophony -- <vibe card> + <lyrics>"
+      // Remove special characters and limit length
+      const sanitizeFilename = (str: string) => {
+        return str
+          .replace(/[^a-z0-9\s-]/gi, '') // Remove special chars
+          .replace(/\s+/g, ' ') // Normalize spaces
+          .trim()
+          .substring(0, 100) // Limit length
+      }
+
+      const safeVibe = sanitizeFilename(vibeCard)
+      const safeLyric = sanitizeFilename(lyric)
+      const filename = `Cacophony -- ${safeVibe} + ${safeLyric}.mp3`
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Failed to download song:', error)
     }
   }
 
@@ -304,26 +338,38 @@ export default function GameHistoryTab() {
                                           </div>
                                           <p className="text-sm text-gray-300 italic mb-2">"{finalLyric}"</p>
                                           {hasAudio && (
-                                            <button
-                                              onClick={() =>
-                                                isPlaying
-                                                  ? handlePauseAudio()
-                                                  : handlePlayAudio(round.id, submission.id, submission.song_url!)
-                                              }
-                                              className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded text-sm transition-colors"
-                                            >
-                                              {isPlaying ? (
-                                                <>
-                                                  <Pause className="w-4 h-4" />
-                                                  Pause
-                                                </>
-                                              ) : (
-                                                <>
-                                                  <Play className="w-4 h-4" />
-                                                  Play Song
-                                                </>
-                                              )}
-                                            </button>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  isPlaying
+                                                    ? handlePauseAudio()
+                                                    : handlePlayAudio(round.id, submission.id, submission.song_url!)
+                                                }
+                                                className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded text-sm transition-colors"
+                                              >
+                                                {isPlaying ? (
+                                                  <>
+                                                    <Pause className="w-4 h-4" />
+                                                    Pause
+                                                  </>
+                                                ) : (
+                                                  <>
+                                                    <Play className="w-4 h-4" />
+                                                    Play Song
+                                                  </>
+                                                )}
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => downloadSong(submission.song_url!, round.vibe_card_text, finalLyric)}
+                                                className="flex items-center gap-2 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 rounded text-sm transition-colors"
+                                                title="Download song"
+                                              >
+                                                <Download className="w-4 h-4" />
+                                                Download
+                                              </button>
+                                            </div>
                                           )}
                                           {submission.song_status === 'generating' && (
                                             <p className="text-xs text-gray-500">Generating song...</p>
