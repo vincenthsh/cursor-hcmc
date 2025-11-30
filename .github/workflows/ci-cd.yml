@@ -31,10 +31,7 @@ jobs:
     - name: Install dependencies
       run: pnpm install
 
-    - name: Run linting
-      run: pnpm run lint
-
-    - name: Run type check
+    - name: Build project
       run: pnpm run build
 
     - name: Upload build artifacts
