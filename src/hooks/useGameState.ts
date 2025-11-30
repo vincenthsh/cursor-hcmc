@@ -335,6 +335,21 @@ export const useGameState = (
           // Complete the progress
           setGameState((prev) => ({ ...prev, generationProgress: 100 }))
 
+          // Check if all submissions are completed and update round status if needed
+          try {
+            const updatedSubmissions = await getSubmissionsForRound(gameState.roundId!)
+            const totalArtistsInRound = gameState.players.filter((p) => !p.isProducer).length
+            const allCompleted = updatedSubmissions.every(s =>
+              s.song_status === 'completed' || s.song_status === 'failed'
+            )
+            if (allCompleted && updatedSubmissions.length === totalArtistsInRound) {
+              await updateRoundStatus(gameState.roundId!, 'listening')
+            }
+          } catch (checkErr) {
+            // Don't fail the whole submission if status check fails
+            console.error('Failed to check round completion status:', checkErr)
+          }
+
         } catch (err) {
           
           // Use fallback audio only on error
@@ -346,6 +361,21 @@ export const useGameState = (
           })
 
           setGameState((prev) => ({ ...prev, generationProgress: 100 }))
+
+          // Check if all submissions are completed (including failed ones) and update round status
+          try {
+            const updatedSubmissions = await getSubmissionsForRound(gameState.roundId!)
+            const totalArtistsInRound = gameState.players.filter((p) => !p.isProducer).length
+            const allCompleted = updatedSubmissions.every(s =>
+              s.song_status === 'completed' || s.song_status === 'failed'
+            )
+            if (allCompleted && updatedSubmissions.length === totalArtistsInRound) {
+              await updateRoundStatus(gameState.roundId!, 'listening')
+            }
+          } catch (checkErr) {
+            // Don't fail the whole submission if status check fails
+            console.error('Failed to check round completion status:', checkErr)
+          }
         }
       } else {
         // Fallback to mock mode when Suno is not configured
@@ -354,6 +384,21 @@ export const useGameState = (
           song_url: FALLBACK.mockAudioUrl,
           suno_task_id: FALLBACK.mockTaskId,
         })
+
+        // Check if all submissions are completed in fallback mode and update round status
+        try {
+          const updatedSubmissions = await getSubmissionsForRound(gameState.roundId!)
+          const totalArtistsInRound = gameState.players.filter((p) => !p.isProducer).length
+          const allCompleted = updatedSubmissions.every(s =>
+            s.song_status === 'completed' || s.song_status === 'failed'
+          )
+          if (allCompleted && updatedSubmissions.length === totalArtistsInRound) {
+            await updateRoundStatus(gameState.roundId!, 'listening')
+          }
+        } catch (checkErr) {
+          // Don't fail the whole submission if status check fails
+          console.error('Failed to check round completion status:', checkErr)
+        }
       }
     } catch (err) {
       await updateSubmissionWithSuno(submission.id, {
