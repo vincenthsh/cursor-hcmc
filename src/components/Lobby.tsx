@@ -5,6 +5,7 @@ import { useLobbyState } from '@/hooks'
 import { getSession, updateSessionUsername } from '@/utils/session'
 import { updatePlayerUsername } from '@/utils/api'
 import { Music } from 'lucide-react'
+import Navigation from '@/components/Navigation'
 
 export default function Lobby() {
   const { roomCode } = useParams<{ roomCode: string }>()
@@ -92,9 +93,15 @@ export default function Lobby() {
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <Music className="w-10 h-10 text-purple-400" />
-            <h1 className="text-4xl font-bold gradient-text">Cacophony</h1>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex-1"></div>
+            <div className="flex items-center gap-3">
+              <Music className="w-10 h-10 text-purple-400" />
+              <h1 className="text-4xl font-bold gradient-text">Cacophony</h1>
+            </div>
+            <div className="flex-1 flex justify-end">
+              <Navigation roomCode={roomCode} />
+            </div>
           </div>
           <p className="text-gray-400">Game Lobby</p>
         </div>
@@ -217,6 +224,9 @@ export default function Lobby() {
           </div>
         </div>
       )}
+
+      {/* Floating Navigation Widget - Shows when game has started */}
+      {room?.status === 'in_progress' && <Navigation roomCode={roomCode} variant="floating" />}
     </div>
   )
 }

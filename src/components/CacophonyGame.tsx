@@ -13,7 +13,9 @@ import {
 } from 'lucide-react'
 import { useGameState } from '@/hooks'
 import { AudioPlayer } from '@/components/AudioPlayer'
+import { KaraokeLyrics } from '@/components/KaraokeLyrics'
 import GameHistoryDrawer from '@/components/GameHistoryDrawer'
+import Navigation from '@/components/Navigation'
 import { getCompletedRounds, getSubmissionsForRound, getPlayersForRoom } from '@/utils/api'
 
 interface CacophonyGameProps {
@@ -47,6 +49,9 @@ const CacophonyGame = ({ roomCode, playerId }: CacophonyGameProps) => {
   const isHost = Boolean(yourPlayer?.id && yourPlayer.id === gameState.hostPlayerId)
   const containerWidth = layoutMode === 'controller' ? 'max-w-3xl' : 'max-w-6xl'
   const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  // Track current audio time for karaoke sync
+  const [currentAudioTime, setCurrentAudioTime] = useState(0)
 
   // Game history drawer state
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
@@ -98,6 +103,7 @@ const CacophonyGame = ({ roomCode, playerId }: CacophonyGameProps) => {
                 audioUrl: sub.song_url,
                 isWinner: sub.is_winner || false,
                 producerRating: sub.producer_rating,
+                timestampedLyrics: sub.timestamped_lyrics || null,
               }
             }),
             winner: winningSubmission
@@ -130,6 +136,10 @@ const CacophonyGame = ({ roomCode, playerId }: CacophonyGameProps) => {
     const audio = audioRef.current
     if (!audio || !currentSong?.audioUrl) return
 
+    // Update current time for karaoke sync
+    const updateTime = () => setCurrentAudioTime(audio.currentTime)
+    audio.addEventListener('timeupdate', updateTime)
+
     if (gameState.isPlaying) {
       if (gameState.listeningCueAt) {
         const offset = Math.max(0, (Date.now() - new Date(gameState.listeningCueAt).getTime()) / 1000)
@@ -142,6 +152,10 @@ const CacophonyGame = ({ roomCode, playerId }: CacophonyGameProps) => {
       })
     } else {
       audio.pause()
+    }
+
+    return () => {
+      audio.removeEventListener('timeupdate', updateTime)
     }
   }, [currentSong?.audioUrl, gameState.isPlaying, gameState.listeningCueAt])
 
@@ -328,9 +342,17 @@ const CacophonyGame = ({ roomCode, playerId }: CacophonyGameProps) => {
           <div className="text-center mb-6">
             <div className="text-sm text-purple-300 mb-2">Now Playing</div>
             <h3 className="text-2xl font-bold mb-4">{gameState.vibeCard}</h3>
-            <div className="inline-block bg-black/30 px-6 py-3 rounded-lg">
-              <p className="text-xl font-semibold text-cyan-300">{currentSong.lyric}</p>
-            </div>
+            {currentSong.timestampedLyrics && currentSong.timestampedLyrics.length > 0 ? (
+              <KaraokeLyrics
+                lyrics={currentSong.timestampedLyrics}
+                currentTime={currentAudioTime}
+                className="my-4"
+              />
+            ) : (
+              <div className="inline-block bg-black/30 px-6 py-3 rounded-lg">
+                <p className="text-xl font-semibold text-cyan-300">{currentSong.lyric}</p>
+              </div>
+            )}
           </div>
 
           {/* Playback Controls */}
@@ -501,6 +523,7 @@ const CacophonyGame = ({ roomCode, playerId }: CacophonyGameProps) => {
             <h1 className="text-4xl font-bold gradient-text">Cacophony</h1>
           </div>
           <div className="flex items-center gap-4">
+            <Navigation roomCode={roomCode} />
             <div className="hidden md:flex items-center gap-2 bg-gray-800 px-3 py-2 rounded-lg text-sm text-gray-300">
               <MonitorSmartphone className="w-4 h-4" />
               <span className="uppercase tracking-wide">{layoutMode === 'controller' ? 'Controller View' : 'Display View'}</span>
