@@ -10,6 +10,12 @@ export interface Player {
   isInactive?: boolean
 }
 
+export interface LyricSegment {
+  text: string
+  startTime: number
+  endTime: number
+}
+
 export interface SongSubmission {
   playerId: string
   playerName: string
@@ -24,6 +30,7 @@ export interface SongSubmission {
   id?: string
   songStatus?: string
   isWinner?: boolean
+  timestampedLyrics?: LyricSegment[] | null
 }
 
 export type GamePhase = 'waiting' | 'selecting' | 'generating' | 'listening' | 'results' | 'error'

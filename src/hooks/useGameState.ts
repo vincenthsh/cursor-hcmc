@@ -82,6 +82,7 @@ export const useGameState = (
       title: `${row.player?.username || 'Player'} - Song`,
       songStatus: row.song_status || undefined,
       isWinner: row.is_winner,
+      timestampedLyrics: row.timestamped_lyrics || null,
     })),
   [])
 
@@ -320,16 +321,31 @@ export const useGameState = (
           // Extract the audio URL from the Suno response
           const track = result.data.response?.sunoData?.[0]
           const audioUrl = track?.audioUrl || track?.streamAudioUrl
+          const audioId = track?.id
 
           if (!audioUrl) {
             throw new Error('No audio URL returned from Suno')
           }
 
-          
+          // Fetch timestamped lyrics if audioId is available
+          let timestampedLyrics = null
+          if (audioId) {
+            try {
+              console.log('[useGameState] Fetching timestamped lyrics for', { taskId, audioId })
+              timestampedLyrics = await sunoApiService.getTimestampedLyrics(taskId, audioId)
+              console.log('[useGameState] Successfully fetched timestamped lyrics', { count: timestampedLyrics.length })
+            } catch (lyricsErr) {
+              // Don't fail the entire generation if lyrics fetch fails
+              console.warn('[useGameState] Failed to fetch timestamped lyrics:', lyricsErr)
+            }
+          }
+
           await updateSubmissionWithSuno(submission.id, {
             song_status: 'completed',
             song_url: audioUrl,
             suno_task_id: taskId,
+            suno_audio_id: audioId || null,
+            timestamped_lyrics: timestampedLyrics,
           })
 
           // Complete the progress

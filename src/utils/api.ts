@@ -60,9 +60,11 @@ export interface SubmissionRow {
   lyric_card_text: string
   filled_blanks: Record<string, string> | null
   suno_task_id: string | null
+  suno_audio_id: string | null
   song_url: string | null
   song_status: 'pending' | 'generating' | 'completed' | 'failed' | null
   song_error: string | null
+  timestamped_lyrics: Array<{ text: string; startTime: number; endTime: number }> | null
   producer_rating: number | null
   is_winner: boolean
 }
@@ -296,7 +298,7 @@ export const submitLyricCard = async (params: {
 
 export const updateSubmissionWithSuno = async (
   submissionId: string,
-  payload: Partial<Pick<SubmissionRow, 'suno_task_id' | 'song_status' | 'song_url' | 'song_error'>>
+  payload: Partial<Pick<SubmissionRow, 'suno_task_id' | 'suno_audio_id' | 'song_status' | 'song_url' | 'song_error' | 'timestamped_lyrics'>>
 ): Promise<void> => {
   const { error } = await supabase
     .from('submissions')
@@ -305,6 +307,19 @@ export const updateSubmissionWithSuno = async (
 
   if (error) throw getError('Failed to update submission', error)
   log('updateSubmissionWithSuno', { submissionId, payload })
+}
+
+export const updateTimestampedLyrics = async (
+  submissionId: string,
+  timestampedLyrics: Array<{ text: string; startTime: number; endTime: number }>
+): Promise<void> => {
+  const { error } = await supabase
+    .from('submissions')
+    .update({ timestamped_lyrics: timestampedLyrics })
+    .eq('id', submissionId)
+
+  if (error) throw getError('Failed to update timestamped lyrics', error)
+  log('updateTimestampedLyrics', { submissionId, lyricsCount: timestampedLyrics.length })
 }
 
 export const setProducerRating = async (submissionId: string, rating: number) => {

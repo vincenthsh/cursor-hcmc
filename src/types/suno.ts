@@ -35,6 +35,31 @@ export interface SunoTrack {
   duration: number
 }
 
+export interface SunoAlignedWord {
+  word: string
+  success: boolean
+  startS: number
+  endS: number
+  palign: number
+}
+
+export interface SunoTimestampedLyricsResponse {
+  code: number
+  msg: string
+  data: {
+    alignedWords: SunoAlignedWord[]
+    waveformData: number[]
+    hootCer: number
+    isStreamed: boolean
+  }
+}
+
+export interface SunoLyricSegment {
+  text: string
+  startTime: number
+  endTime: number
+}
+
 export interface SunoRecordInfoResponse {
   code: number
   msg: string

@@ -1,7 +1,9 @@
-import {
+import type {
   SunoGenerateRequest,
   SunoGenerateResponse,
   SunoRecordInfoResponse,
+  SunoTimestampedLyricsResponse,
+  SunoLyricSegment,
   SunoConfig
 } from '@/types/suno'
 
@@ -266,6 +268,39 @@ class SunoApiService {
     })
 
     return Promise.all(tasks)
+  }
+
+  /**
+   * Get timestamped lyrics for a generated song
+   * @param taskId - The task ID of the music generation task
+   * @param audioId - Audio ID of the track to retrieve lyrics for
+   */
+  async getTimestampedLyrics(taskId: string, audioId: string): Promise<SunoLyricSegment[]> {
+    log(`🎤 Fetching timestamped lyrics for task: ${taskId}, audio: ${audioId}`)
+
+    const response: SunoTimestampedLyricsResponse = await this.makeRequest(
+      `/api/v1/generate/get-timestamped-lyrics`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ taskId, audioId })
+      }
+    )
+
+    if (response.code !== 200) {
+      throw new SunoApiError(response.msg, response.code)
+    }
+
+    // Transform aligned words into lyric segments
+    const segments: SunoLyricSegment[] = response.data.alignedWords
+      .filter(word => word.success)
+      .map(word => ({
+        text: word.word,
+        startTime: word.startS,
+        endTime: word.endS
+      }))
+
+    log(`✅ Retrieved ${segments.length} lyric segments for task: ${taskId}`)
+    return segments
   }
 
   private createPrompt(vibeCard: string, lyric: string): string {

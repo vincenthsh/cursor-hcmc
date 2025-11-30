@@ -136,6 +136,22 @@ BEGIN
     END IF;
 END$$;
 
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'submissions' AND column_name = 'timestamped_lyrics'
+    ) THEN
+        ALTER TABLE submissions ADD COLUMN timestamped_lyrics JSONB;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'submissions' AND column_name = 'suno_audio_id'
+    ) THEN
+        ALTER TABLE submissions ADD COLUMN suno_audio_id TEXT;
+    END IF;
+END$$;
+
 -- ============================================
 -- 4. PLAYER HANDS TABLE
 -- Tracks which lyric cards each player has for a round
@@ -176,10 +192,12 @@ CREATE TABLE IF NOT EXISTS submissions (
     
     -- Suno song generation
     suno_task_id TEXT, -- Suno API task ID
+    suno_audio_id TEXT, -- Suno audio ID for timestamped lyrics
     song_url TEXT, -- Generated song URL
     song_status VARCHAR(20) DEFAULT 'pending', -- pending, generating, completed, failed
     song_error TEXT, -- Error message if failed
-    
+    timestamped_lyrics JSONB, -- Array of {text, startTime, endTime} for karaoke display
+
     -- Producer rating (NUMERIC as requested)
     producer_rating NUMERIC(3,1) CHECK (producer_rating >= 0 AND producer_rating <= 5), -- 0.0 to 5.0
     is_winner BOOLEAN DEFAULT FALSE,
@@ -240,6 +258,8 @@ COMMENT ON COLUMN player_hands.is_played IS 'TRUE when player submits this card'
 COMMENT ON COLUMN submissions.hand_card_id IS 'Optional reference to the card from player_hands that was played';
 COMMENT ON COLUMN submissions.filled_blanks IS 'JSONB: {"0": "answer1", "1": "answer2"}';
 COMMENT ON COLUMN submissions.suno_task_id IS 'Suno API task ID for polling';
+COMMENT ON COLUMN submissions.suno_audio_id IS 'Suno audio ID for fetching timestamped lyrics';
+COMMENT ON COLUMN submissions.timestamped_lyrics IS 'JSONB array of lyric segments: [{"text": "...", "startTime": 1.2, "endTime": 2.5}] for karaoke display';
 COMMENT ON COLUMN submissions.producer_rating IS 'Numeric rating from producer (0.0 to 5.0)';
 COMMENT ON COLUMN game_rooms.is_paused IS 'Host-controlled pause flag propagated via polling';
 COMMENT ON COLUMN game_rooms.paused_at IS 'Timestamp when the room was paused for UX messaging';
