@@ -560,32 +560,6 @@ export const LYRIC_CARDS = [
 ] as const;
 
 export const DEFAULT_GAME_CONFIG: GameConfig = {
-	players: [
-		{
-			id: "player-1",
-			name: "Player 1",
-			score: 0,
-			isProducer: true,
-			submitted: false,
-			isYou: true,
-		},
-		{
-			id: "player-2",
-			name: "Player 2",
-			score: 0,
-			isProducer: false,
-			submitted: false,
-			isYou: false,
-		},
-		{
-			id: "player-3",
-			name: "Player 3",
-			score: 0,
-			isProducer: false,
-			submitted: false,
-			isYou: false,
-		},
-	],
 	timerDuration: GAME_MECHANICS.timerDuration,
 	handSize: GAME_MECHANICS.handSize,
 };
