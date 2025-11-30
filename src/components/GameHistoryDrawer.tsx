@@ -1,5 +1,7 @@
-import { useState } from 'react'
-import { X, History, Play, Pause, Trophy, Music, ChevronDown, ChevronUp } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, History, Play, Pause, Trophy, Music, ChevronDown, ChevronUp, Download } from 'lucide-react'
+import { KaraokeLyrics } from '@/components/KaraokeLyrics'
+import type { LyricSegment } from '@/types/game'
 
 interface HistoricalRound {
   roundNumber: number
@@ -16,6 +18,7 @@ interface HistoricalRound {
     audioUrl: string | null
     isWinner: boolean
     producerRating: number | null
+    timestampedLyrics?: LyricSegment[] | null
   }[]
   winner?: {
     id: string
@@ -34,6 +37,7 @@ export default function GameHistoryDrawer({ isOpen, onClose, rounds, currentRoun
   const [expandedRound, setExpandedRound] = useState<number | null>(null)
   const [playingAudio, setPlayingAudio] = useState<string | null>(null)
   const [audioElements, setAudioElements] = useState<Record<string, HTMLAudioElement>>({})
+  const [audioCurrentTimes, setAudioCurrentTimes] = useState<Record<string, number>>({})
 
   const toggleRound = (roundNumber: number) => {
     setExpandedRound(expandedRound === roundNumber ? null : roundNumber)
@@ -56,7 +60,13 @@ export default function GameHistoryDrawer({ isOpen, onClose, rounds, currentRoun
     let audio = audioElements[submissionId]
     if (!audio) {
       audio = new Audio(audioUrl)
-      audio.addEventListener('ended', () => setPlayingAudio(null))
+      audio.addEventListener('ended', () => {
+        setPlayingAudio(null)
+        setAudioCurrentTimes(prev => ({ ...prev, [submissionId]: 0 }))
+      })
+      audio.addEventListener('timeupdate', () => {
+        setAudioCurrentTimes(prev => ({ ...prev, [submissionId]: audio.currentTime }))
+      })
       setAudioElements(prev => ({ ...prev, [submissionId]: audio }))
     }
 
@@ -70,6 +80,51 @@ export default function GameHistoryDrawer({ isOpen, onClose, rounds, currentRoun
       setPlayingAudio(null)
     }
   }
+
+  const downloadSong = async (audioUrl: string, vibeCard: string, lyric: string) => {
+    try {
+      // Fetch the audio file
+      const response = await fetch(audioUrl)
+      const blob = await response.blob()
+
+      // Create a safe filename: "Cacophony -- <vibe card> + <lyrics>"
+      // Remove special characters and limit length
+      const sanitizeFilename = (str: string) => {
+        return str
+          .replace(/[^a-z0-9\s-]/gi, '') // Remove special chars
+          .replace(/\s+/g, ' ') // Normalize spaces
+          .trim()
+          .substring(0, 100) // Limit length
+      }
+
+      const safeVibe = sanitizeFilename(vibeCard)
+      const safeLyric = sanitizeFilename(lyric)
+      const filename = `Cacophony -- ${safeVibe} + ${safeLyric}.mp3`
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Failed to download song:', error)
+    }
+  }
+
+  // Cleanup effect for audio time tracking
+  useEffect(() => {
+    return () => {
+      // Cleanup all audio elements when component unmounts
+      Object.values(audioElements).forEach(audio => {
+        audio.pause()
+        audio.currentTime = 0
+      })
+    }
+  }, [audioElements])
 
   // Cleanup audio elements when drawer closes
   const handleClose = () => {
@@ -199,13 +254,23 @@ export default function GameHistoryDrawer({ isOpen, onClose, rounds, currentRoun
                                     <Trophy className="w-4 h-4 text-yellow-400" />
                                   )}
                                 </div>
-                                <p className="text-sm text-gray-400 italic">"{submission.lyric}"</p>
+                                {playingAudio === submission.id &&
+                                 submission.timestampedLyrics &&
+                                 submission.timestampedLyrics.length > 0 ? (
+                                  <KaraokeLyrics
+                                    lyrics={submission.timestampedLyrics}
+                                    currentTime={audioCurrentTimes[submission.id] || 0}
+                                    className="my-2"
+                                  />
+                                ) : (
+                                  <p className="text-sm text-gray-400 italic">"{submission.lyric}"</p>
+                                )}
                               </div>
                             </div>
 
                             {/* Audio Playback */}
                             {submission.audioUrl && (
-                              <div className="mt-3 flex items-center gap-3">
+                              <div className="mt-3 flex items-center gap-3 flex-wrap">
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -226,6 +291,15 @@ export default function GameHistoryDrawer({ isOpen, onClose, rounds, currentRoun
                                       Play Song
                                     </>
                                   )}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => downloadSong(submission.audioUrl!, round.vibeCard, submission.lyric)}
+                                  className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors font-semibold text-sm"
+                                  title="Download song"
+                                >
+                                  <Download className="w-4 h-4" />
+                                  Download
                                 </button>
                                 {playingAudio === submission.id && (
                                   <div className="flex items-center gap-2 text-purple-400 animate-pulse">
