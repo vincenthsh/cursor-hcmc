@@ -263,6 +263,19 @@ export const submitLyricCard = async (params: {
 }): Promise<SubmissionRow> => {
   const { roundId, playerId, handCard, filledBlanks } = params
 
+  // Check if submission already exists to prevent duplicate key error
+  const { data: existing } = await supabase
+    .from('submissions')
+    .select('*')
+    .eq('round_id', roundId)
+    .eq('player_id', playerId)
+    .maybeSingle()
+
+  if (existing) {
+    log('submitLyricCard - already exists', { submissionId: existing.id, roundId, playerId })
+    return existing as SubmissionRow
+  }
+
   const { data, error } = await supabase
     .from('submissions')
     .insert({

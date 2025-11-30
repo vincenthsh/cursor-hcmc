@@ -48,6 +48,7 @@ export interface GameState {
   timer: number
   winner: string | null
   loading: boolean
+  isSubmitting: boolean
   error?: string
 }
 

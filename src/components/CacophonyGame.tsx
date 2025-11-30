@@ -506,10 +506,9 @@ const CacophonyGame = ({ roomCode, playerId }: CacophonyGameProps) => {
               <span className="uppercase tracking-wide">{layoutMode === 'controller' ? 'Controller View' : 'Display View'}</span>
             </div>
             <div className="text-right">
-              <div className="text-sm text-gray-400">Round {gameState.currentRound}</div>
-              <div className="text-lg font-semibold">
-                Producer:{' '}
-                <span className="text-yellow-400">{producer?.name}</span>
+              <div>
+                <div className="text-sm text-gray-400">Round {gameState.currentRound} Producer: <span className="text-yellow-400">{producer?.name}</span></div>
+                <div className="text-sm text-gray-400">Player: <span className="text-yellow-400">{yourPlayer?.name}</span></div>
               </div>
             </div>
           </div>

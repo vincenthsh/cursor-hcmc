@@ -54,6 +54,7 @@ const initialState: GameState = {
   timer: DEFAULT_GAME_CONFIG.timerDuration,
   winner: null,
   loading: true,
+  isSubmitting: false,
   error: undefined,
 }
 
@@ -265,18 +266,23 @@ export const useGameState = (
 
   const submitCard = useCallback(async () => {
     if (gameState.isPaused) return
+    if (gameState.isSubmitting) return // Prevent double-clicks
     if (!gameState.selectedCard || yourPlayer?.submitted || !gameState.roundId || !currentPlayerId) return
 
-    const filledBlanks = gameState.filledBlanks
-    const submission = await submitLyricCard({
-      roundId: gameState.roundId,
-      playerId: currentPlayerId,
-      handCard: gameState.selectedCard,
-      filledBlanks,
-    })
+    try {
+      // Set submitting state to prevent double-clicks
+      setGameState((prev) => ({ ...prev, isSubmitting: true }))
 
-    await markCardPlayed(gameState.selectedCard.id)
-    await updatePlayerActivity(currentPlayerId)
+      const filledBlanks = gameState.filledBlanks
+      const submission = await submitLyricCard({
+        roundId: gameState.roundId,
+        playerId: currentPlayerId,
+        handCard: gameState.selectedCard,
+        filledBlanks,
+      })
+
+      await markCardPlayed(gameState.selectedCard.id)
+      await updatePlayerActivity(currentPlayerId)
 
     const finalLyric = computeFinalLyric(
       gameState.selectedCard.template || gameState.selectedCard.lyric_card_text,
@@ -366,15 +372,25 @@ export const useGameState = (
       })
     }
 
-    setGameState((prev) => ({
-      ...prev,
-      players: prev.players.map((p) => (p.isYou ? { ...p, submitted: true } : p)),
-      selectedCard: null,
-      filledBlanks: {},
-    }))
+      setGameState((prev) => ({
+        ...prev,
+        players: prev.players.map((p) => (p.isYou ? { ...p, submitted: true } : p)),
+        selectedCard: null,
+        filledBlanks: {},
+      }))
 
-    await loadRoundState()
-  }, [currentPlayerId, gameState.selectedCard, gameState.roundId, gameState.vibeCard, gameState.filledBlanks, yourPlayer?.submitted, loadRoundState])
+      await loadRoundState()
+    } catch (error) {
+      console.error('Failed to submit card:', error)
+      setGameState((prev) => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to submit card'
+      }))
+    } finally {
+      // Always reset submitting state
+      setGameState((prev) => ({ ...prev, isSubmitting: false }))
+    }
+  }, [currentPlayerId, gameState.selectedCard, gameState.roundId, gameState.vibeCard, gameState.filledBlanks, gameState.isSubmitting, yourPlayer?.submitted, loadRoundState])
 
   const togglePlaySong = useCallback(() => {
     if (!gameState.roundId) return
